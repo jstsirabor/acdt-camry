@@ -1,0 +1,143 @@
+services:
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    ports: ["8086:8086"]
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: adminpassword
+      DOCKER_INFLUXDB_INIT_ORG: digital_twin
+      DOCKER_INFLUXDB_INIT_BUCKET: asset_telemetry
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: my-super-secret-token
+    volumes: [influxdb_data:/var/lib/influxdb2]
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:6
+    container_name: mongodb
+    ports: ["27017:27017"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes: [mongodb_data:/data/db]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports: ["6379:6379"]
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5.13
+    container_name: neo4j
+    ports: ["7474:7474", "7687:7687"]
+    environment:
+      NEO4J_AUTH: neo4j/password
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes: [neo4j_data:/data]
+    restart: unless-stopped
+
+  ditto-mongodb:
+    image: mongo:6
+    container_name: ditto-mongodb
+    volumes: [ditto_mongo:/data/db]
+    healthcheck:
+      test: ["CMD","mongosh","--quiet","--eval","db.runCommand({ping:1}).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  ditto-policies:
+    image: eclipse/ditto-policies:3.5.0
+    container_name: ditto-policies
+    environment:
+      MONGO_DB_URI: mongodb://ditto-mongodb:27017/policies
+      DITTO_DEVOPS_SECURE_STATUS: "false"
+    depends_on:
+      ditto-mongodb:
+        condition: service_healthy
+    networks:
+      default:
+        aliases: [ditto-cluster]
+    restart: unless-stopped
+
+  ditto-things:
+    image: eclipse/ditto-things:3.5.0
+    container_name: ditto-things
+    environment:
+      MONGO_DB_URI: mongodb://ditto-mongodb:27017/things
+      DITTO_DEVOPS_SECURE_STATUS: "false"
+    depends_on:
+      ditto-mongodb:
+        condition: service_healthy
+    networks:
+      default:
+        aliases: [ditto-cluster]
+    restart: unless-stopped
+
+  ditto-things-search:
+    image: eclipse/ditto-things-search:3.5.0
+    container_name: ditto-things-search
+    environment:
+      MONGO_DB_URI: mongodb://ditto-mongodb:27017/search
+    depends_on:
+      ditto-mongodb:
+        condition: service_healthy
+    networks:
+      default:
+        aliases: [ditto-cluster]
+    restart: unless-stopped
+
+  ditto-connectivity:
+    image: eclipse/ditto-connectivity:3.5.0
+    container_name: ditto-connectivity
+    environment:
+      MONGO_DB_URI: mongodb://ditto-mongodb:27017/connectivity
+    depends_on:
+      ditto-mongodb:
+        condition: service_healthy
+    networks:
+      default:
+        aliases: [ditto-cluster]
+    restart: unless-stopped
+
+  ditto-gateway:
+    image: eclipse/ditto-gateway:3.5.0
+    container_name: ditto-gateway
+    environment:
+      DITTO_DEVOPS_SECURE_STATUS: "false"
+      ENABLE_PRE_AUTHENTICATION: "true"
+      DEVOPS_PASSWORD: devops
+    depends_on:
+      ditto-policies:
+        condition: service_started
+      ditto-things:
+        condition: service_started
+      ditto-things-search:
+        condition: service_started
+      ditto-connectivity:
+        condition: service_started
+    networks:
+      default:
+        aliases: [ditto-cluster]
+    ports: ["8081:8080"]
+    restart: unless-stopped
+
+  ditto-nginx:
+    image: nginx:1.27-alpine
+    container_name: ditto-nginx
+    ports: ["8080:80"]
+    volumes:
+      - ./config/ditto/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/ditto/nginx.htpasswd:/etc/nginx/ditto.htpasswd:ro
+    depends_on: [ditto-gateway]
+    restart: unless-stopped
+
+volumes:
+  influxdb_data:
+  mongodb_data:
+  neo4j_data:
+  ditto_mongo:

@@ -1,0 +1,26 @@
+# Virtual environment
+.venv/
+
+# Docker volumes / data
+volumes/
+influxdb_data/
+grafana_data/
+mongodb_data/
+minio_data/
+neo4j_data/
+ditto_mongo/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment secrets (keep your real .env out of the repo)
+.env
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACDT — 2018 Toyota Camry</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@200;300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #040810;
+    --bg2:       #070d1a;
+    --bg3:       #0a1220;
+    --panel:     #0c1628;
+    --border:    #1a2d4a;
+    --border2:   #243d60;
+    --cyan:      #00d4ff;
+    --cyan2:     #0099cc;
+    --green:     #00ff88;
+    --green2:    #00cc66;
+    --amber:     #ffaa00;
+    --red:       #ff3355;
+    --red2:      #cc1133;
+    --text:      #c8dff0;
+    --text2:     #6a8aaa;
+    --text3:     #3a5570;
+    --glow-c:    0 0 20px rgba(0,212,255,0.3);
+    --glow-g:    0 0 20px rgba(0,255,136,0.3);
+    --glow-r:    0 0 20px rgba(255,51,85,0.4);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Scanline overlay ─────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* ── Grid noise texture ───────────────────────────────── */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.4;
+  }
+
+  /* ── Header ───────────────────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    background: linear-gradient(180deg, rgba(0,212,255,0.05) 0%, transparent 100%);
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  }
+
+  .logo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .logo-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 4px;
+    color: var(--cyan);
+    text-transform: uppercase;
+    text-shadow: var(--glow-c);
+  }
+  .logo-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text2);
+    letter-spacing: 3px;
+  }
+
+  .header-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .vehicle-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    color: var(--text);
+  }
+  .vin {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 2px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 2px;
+  }
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    box-shadow: var(--glow-g);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .health-ring-small {
+    position: relative;
+    width: 48px; height: 48px;
+  }
+  .health-ring-small svg { transform: rotate(-90deg); }
+  .health-ring-small .score-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--green);
+    transform: none;
+  }
+
+  /* ── Main grid ────────────────────────────────────────── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 360px;
+    grid-template-rows: auto auto 1fr;
+    gap: 12px;
+    padding: 12px;
+    height: calc(100vh - 68px);
+  }
+
+  /* ── Panel base ───────────────────────────────────────── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+  }
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border2), transparent);
+  }
+
+  .panel-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    color: var(--text2);
+    text-transform: uppercase;
+    padding: 10px 14px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title::before {
+    content: '';
+    display: block;
+    width: 3px; height: 3px;
+    background: var(--cyan);
+    box-shadow: var(--glow-c);
+  }
+
+  /* ── Gauge panels ─────────────────────────────────────── */
+  .gauges-row {
+    grid-column: 1 / 4;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .gauge-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .gauge-panel.warning { border-color: var(--amber); }
+  .gauge-panel.critical { border-color: var(--red); box-shadow: var(--glow-r); }
+
+  .gauge-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text2);
+    text-transform: uppercase;
+  }
+  .gauge-value {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 32px;
+    color: var(--cyan);
+    text-shadow: var(--glow-c);
+    line-height: 1;
+    transition: color 0.3s;
+  }
+  .gauge-panel.warning  .gauge-value { color: var(--amber); }
+  .gauge-panel.critical .gauge-value { color: var(--red); text-shadow: var(--glow-r); }
+  .gauge-unit {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: -6px;
+  }
+
+  .gauge-bar-wrap {
+    width: 100%;
+    height: 3px;
+    background: var(--bg);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .gauge-bar {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--cyan);
+    transition: width 0.5s ease, background 0.3s;
+  }
+  .gauge-panel.warning  .gauge-bar { background: var(--amber); }
+  .gauge-panel.critical .gauge-bar { background: var(--red); }
+
+  /* ── O2 Chart ─────────────────────────────────────────── */
+  .o2-panel {
+    grid-column: 1 / 3;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .o2-canvas-wrap {
+    flex: 1;
+    position: relative;
+  }
+  #o2Chart { width: 100%; height: 100%; }
+
+  /* ── Health score panel ───────────────────────────────── */
+  .health-panel {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+  .health-ring {
+    position: relative;
+    width: 120px; height: 120px;
+  }
+  .health-ring svg { transform: rotate(-90deg); }
+  .health-ring .score-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+  .score-num {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 36px;
+    color: var(--green);
+    text-shadow: var(--glow-g);
+    line-height: 1;
+  }
+  .score-word {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text2);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .health-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+  .hstat {
+    text-align: center;
+  }
+  .hstat-val {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 18px;
+    color: var(--cyan);
+  }
+  .hstat-lbl {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    color: var(--text3);
+    letter-spacing: 1px;
+  }
+
+  /* ── Fuel trim bars ───────────────────────────────────── */
+  .fuel-panel {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .trim-item { display: flex; flex-direction: column; gap: 5px; }
+  .trim-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .trim-name {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text2);
+    letter-spacing: 1px;
+  }
+  .trim-val {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--cyan);
+  }
+  .trim-track {
+    height: 4px;
+    background: var(--bg);
+    border-radius: 2px;
+    position: relative;
+  }
+  .trim-center {
+    position: absolute;
+    left: 50%; top: -2px;
+    width: 1px; height: 8px;
+    background: var(--border2);
+  }
+  .trim-fill {
+    position: absolute;
+    height: 100%;
+    border-radius: 2px;
+    top: 0;
+    transition: all 0.5s ease;
+  }
+
+  /* ── Alerts panels ────────────────────────────────────── */
+  .alerts-row {
+    grid-column: 1 / 4;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .alert-panel {
+    padding: 10px 14px;
+    overflow-y: auto;
+  }
+  .alert-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .agent-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    padding: 3px 8px;
+    border-radius: 2px;
+    letter-spacing: 2px;
+  }
+  .badge-safety {
+    background: rgba(255,51,85,0.15);
+    color: var(--red);
+    border: 1px solid rgba(255,51,85,0.3);
+  }
+  .badge-preventive {
+    background: rgba(255,170,0,0.15);
+    color: var(--amber);
+    border: 1px solid rgba(255,170,0,0.3);
+  }
+  .alert-content {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text2);
+    line-height: 1.8;
+    white-space: pre-wrap;
+  }
+  .alert-content.has-warning { color: var(--amber); }
+  .alert-content.has-critical { color: var(--red); }
+
+  /* ── Chat panel ───────────────────────────────────────── */
+  .chat-panel {
+    grid-column: 4;
+    grid-row: 1 / 4;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+  }
+
+  .chat-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .chat-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    color: var(--cyan);
+  }
+  .agent-dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .agent-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .dot-predictive { background: var(--cyan); box-shadow: var(--glow-c); }
+  .dot-safety     { background: var(--red); }
+  .dot-preventive { background: var(--amber); }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    animation: fadeUp 0.3s ease;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg-role {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--text3);
+    text-transform: uppercase;
+  }
+  .msg-bubble {
+    padding: 10px 12px;
+    border-radius: 2px;
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg.user .msg-bubble {
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    color: var(--text);
+    align-self: flex-end;
+    max-width: 90%;
+  }
+  .msg.agent .msg-bubble {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    max-width: 100%;
+  }
+  .msg.thinking .msg-bubble {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text3);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    border-style: dashed;
+  }
+  .msg.tool_start .msg-bubble {
+    background: rgba(0,212,255,0.04);
+    border: 1px solid rgba(0,212,255,0.15);
+    color: var(--cyan2);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+  }
+  .msg.tool_end .msg-bubble {
+    background: rgba(0,255,136,0.03);
+    border: 1px solid rgba(0,255,136,0.1);
+    color: var(--text2);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+  .msg.error .msg-bubble {
+    background: rgba(255,51,85,0.08);
+    border: 1px solid rgba(255,51,85,0.3);
+    color: var(--red);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+  }
+
+  .tool-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    color: var(--cyan);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .typing-indicator {
+    display: flex;
+    gap: 4px;
+    padding: 8px 12px;
+    align-items: center;
+  }
+  .typing-dot {
+    width: 4px; height: 4px;
+    background: var(--cyan);
+    border-radius: 50%;
+    animation: typing 1.2s infinite;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typing {
+    0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+    40%           { opacity: 1;   transform: scale(1); }
+  }
+
+  .chat-input-row {
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .chat-input {
+    flex: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    font-size: 12px;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+    resize: none;
+    height: 36px;
+  }
+  .chat-input:focus { border-color: var(--cyan2); }
+  .chat-input::placeholder { color: var(--text3); }
+
+  .send-btn {
+    background: rgba(0,212,255,0.1);
+    border: 1px solid var(--cyan2);
+    color: var(--cyan);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 8px 14px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .send-btn:hover {
+    background: rgba(0,212,255,0.2);
+    box-shadow: var(--glow-c);
+  }
+  .send-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* ── Quick prompts ────────────────────────────────────── */
+  .quick-prompts {
+    padding: 0 12px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .qp {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    color: var(--text3);
+    border: 1px solid var(--border);
+    padding: 3px 7px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .qp:hover {
+    color: var(--cyan);
+    border-color: var(--cyan2);
+    background: rgba(0,212,255,0.05);
+  }
+
+  /* ── Event log ────────────────────────────────────────── */
+  .events-panel {
+    overflow-y: auto;
+    padding: 10px 14px;
+  }
+  .event-item {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(26,45,74,0.5);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+  }
+  .event-sev {
+    padding: 1px 5px;
+    border-radius: 1px;
+    font-size: 8px;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+  }
+  .sev-info     { background: rgba(0,212,255,0.1);  color: var(--cyan); }
+  .sev-warning  { background: rgba(255,170,0,0.1);  color: var(--amber); }
+  .sev-critical { background: rgba(255,51,85,0.15); color: var(--red); }
+  .event-text { color: var(--text2); line-height: 1.5; }
+
+  /* ── Scrollbars ───────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ── Canvas chart ─────────────────────────────────────── */
+  canvas { display: block; }
+
+  /* ── Animations on load ───────────────────────────────── */
+  .panel, .gauge-panel {
+    animation: panelIn 0.6s ease both;
+  }
+  @keyframes panelIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .gauge-panel:nth-child(1) { animation-delay: 0.05s; }
+  .gauge-panel:nth-child(2) { animation-delay: 0.10s; }
+  .gauge-panel:nth-child(3) { animation-delay: 0.15s; }
+  .gauge-panel:nth-child(4) { animation-delay: 0.20s; }
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-title">ACDT</div>
+    <div class="logo-sub">AGENTIC CAR DIGITAL TWIN</div>
+  </div>
+  <div class="header-center">
+    <div class="vehicle-name">2018 TOYOTA CAMRY</div>
+    <div class="vin" id="vinDisplay">VIN: VIN_1234567890</div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      <span>LIVE</span>
+    </div>
+    <div class="health-ring-small">
+      <svg width="48" height="48" viewBox="0 0 48 48">
+        <circle cx="24" cy="24" r="20" fill="none" stroke="#0a1220" stroke-width="4"/>
+        <circle id="miniRing" cx="24" cy="24" r="20" fill="none"
+                stroke="#00ff88" stroke-width="4"
+                stroke-dasharray="125.6" stroke-dashoffset="12.5"
+                stroke-linecap="round"/>
+      </svg>
+      <div class="score-text" id="miniScore">90</div>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main grid ────────────────────────────────────────── -->
+<div class="main-grid">
+
+  <!-- Row 1: Gauges -->
+  <div class="gauges-row">
+    <div class="gauge-panel" id="g-rpm">
+      <div class="gauge-label">Engine RPM</div>
+      <div class="gauge-value" id="v-rpm">—</div>
+      <div class="gauge-unit">RPM</div>
+      <div class="gauge-bar-wrap"><div class="gauge-bar" id="b-rpm" style="width:0%"></div></div>
+    </div>
+    <div class="gauge-panel" id="g-coolant">
+      <div class="gauge-label">Coolant Temp</div>
+      <div class="gauge-value" id="v-coolant">—</div>
+      <div class="gauge-unit">°C</div>
+      <div class="gauge-bar-wrap"><div class="gauge-bar" id="b-coolant" style="width:0%"></div></div>
+    </div>
+    <div class="gauge-panel" id="g-speed">
+      <div class="gauge-label">Vehicle Speed</div>
+      <div class="gauge-value" id="v-speed">—</div>
+      <div class="gauge-unit">km/h</div>
+      <div class="gauge-bar-wrap"><div class="gauge-bar" id="b-speed" style="width:0%"></div></div>
+    </div>
+    <div class="gauge-panel" id="g-load">
+      <div class="gauge-label">Engine Load</div>
+      <div class="gauge-value" id="v-load">—</div>
+      <div class="gauge-unit">%</div>
+      <div class="gauge-bar-wrap"><div class="gauge-bar" id="b-load" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- Row 2: O2 Chart + Health + Fuel Trim -->
+  <div class="panel o2-panel" style="grid-column:1/3">
+    <div class="panel-title">O₂ SENSOR CORRELATION</div>
+    <div class="o2-canvas-wrap">
+      <canvas id="o2Chart"></canvas>
+    </div>
+  </div>
+
+  <div class="panel health-panel">
+    <div class="panel-title" style="align-self:flex-start">VEHICLE HEALTH</div>
+    <div class="health-ring">
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#070d1a" stroke-width="8"/>
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#0a1220" stroke-width="8"
+                stroke-dasharray="314.2" stroke-dashoffset="0"/>
+        <circle id="healthRing" cx="60" cy="60" r="50" fill="none"
+                stroke="#00ff88" stroke-width="8"
+                stroke-dasharray="314.2" stroke-dashoffset="31.4"
+                stroke-linecap="round" style="transition: all 1s ease"/>
+      </svg>
+      <div class="score-label">
+        <div class="score-num" id="healthScore">90</div>
+        <div class="score-word" id="healthStatus">NOMINAL</div>
+      </div>
+    </div>
+    <div class="health-stats">
+      <div class="hstat">
+        <div class="hstat-val" id="maf-val">—</div>
+        <div class="hstat-lbl">MAF g/s</div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val" id="throttle-val">—</div>
+        <div class="hstat-lbl">THROTTLE %</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel fuel-panel">
+    <div class="panel-title">FUEL TRIMS</div>
+    <div class="trim-item">
+      <div class="trim-header">
+        <span class="trim-name">SHORT TERM</span>
+        <span class="trim-val" id="ft-short-val">—</span>
+      </div>
+      <div class="trim-track">
+        <div class="trim-center"></div>
+        <div class="trim-fill" id="ft-short-bar"></div>
+      </div>
+    </div>
+    <div class="trim-item">
+      <div class="trim-header">
+        <span class="trim-name">LONG TERM</span>
+        <span class="trim-val" id="ft-long-val">—</span>
+      </div>
+      <div class="trim-track">
+        <div class="trim-center"></div>
+        <div class="trim-fill" id="ft-long-bar"></div>
+      </div>
+    </div>
+    <div style="margin-top: auto">
+      <div class="panel-title" style="padding:0 0 8px">RECENT EVENTS</div>
+      <div id="eventList" style="max-height:100px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- Row 3: Agent alerts -->
+  <div class="alerts-row">
+    <div class="panel alert-panel">
+      <div class="alert-header">
+        <div class="panel-title" style="padding:0">SAFETY AGENT</div>
+        <span class="agent-badge badge-safety">⚠ SAFETY</span>
+      </div>
+      <div class="alert-content" id="safetyAlert">Awaiting safety assessment...</div>
+    </div>
+    <div class="panel alert-panel">
+      <div class="alert-header">
+        <div class="panel-title" style="padding:0">PREVENTIVE AGENT</div>
+        <span class="agent-badge badge-preventive">🔧 PREVENTIVE</span>
+      </div>
+      <div class="alert-content" id="preventiveAlert">Awaiting maintenance assessment...</div>
+    </div>
+  </div>
+
+  <!-- Chat panel (spans full height on right) -->
+  <div class="panel chat-panel">
+    <div class="chat-header">
+      <div class="chat-title">PREDICTIVE AGENT</div>
+      <div class="agent-dots">
+        <div class="agent-dot dot-predictive" title="Predictive"></div>
+        <div class="agent-dot dot-safety"     title="Safety"></div>
+        <div class="agent-dot dot-preventive" title="Preventive"></div>
+      </div>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+      <div class="msg agent">
+        <div class="msg-role">PREDICTIVE AGENT</div>
+        <div class="msg-bubble">System online. I'm monitoring your 2018 Toyota Camry in real-time. Ask me about vehicle health, safety, or upcoming maintenance.</div>
+      </div>
+    </div>
+
+    <div class="quick-prompts">
+      <div class="qp" onclick="quickSend('Full vehicle health report')">HEALTH REPORT</div>
+      <div class="qp" onclick="quickSend('Is the vehicle safe to drive right now?')">SAFETY CHECK</div>
+      <div class="qp" onclick="quickSend('What maintenance is due or overdue?')">MAINTENANCE</div>
+      <div class="qp" onclick="quickSend('Analyse the catalytic converter health')">CAT CONVERTER</div>
+      <div class="qp" onclick="quickSend('What will fail next?')">PREDICT FAILURE</div>
+    </div>
+
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chatInput"
+        placeholder="Ask about your vehicle..."
+        rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"
+      ></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">SEND</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── O2 Chart ───────────────────────────────────────────────────────
+const O2_MAX = 80;
+const o2Data = { s1: [], s2: [] };
+
+function initChart() {
+  const canvas = document.getElementById('o2Chart');
+  const wrap   = canvas.parentElement;
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight || 120;
+}
+
+function drawO2Chart() {
+  const canvas = document.getElementById('o2Chart');
+  const wrap   = canvas.parentElement;
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight || 120;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(26,45,74,0.5)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = (i / 4) * H;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  }
+
+  // Y axis labels
+  ctx.fillStyle = '#3a5570';
+  ctx.font = '8px Share Tech Mono';
+  ctx.fillText('1.0V', 2, 10);
+  ctx.fillText('0.5V', 2, H / 2 + 4);
+  ctx.fillText('0.0V', 2, H - 2);
+
+  function drawLine(data, color, glow) {
+    if (data.length < 2) return;
+    ctx.shadowColor = color;
+    ctx.shadowBlur  = glow ? 6 : 0;
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    data.forEach((v, i) => {
+      const x = (i / (O2_MAX - 1)) * W;
+      const y = H - (Math.min(Math.max(v, 0), 1.0) / 1.0) * H;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  drawLine(o2Data.s1, '#00d4ff', true);
+  drawLine(o2Data.s2, '#00ff88', true);
+
+  // Legend
+  ctx.fillStyle = '#00d4ff'; ctx.fillRect(W - 80, 8, 8, 2);
+  ctx.fillStyle = '#6a8aaa'; ctx.font = '8px Share Tech Mono';
+  ctx.fillText('UPSTREAM', W - 68, 12);
+  ctx.fillStyle = '#00ff88'; ctx.fillRect(W - 80, 20, 8, 2);
+  ctx.fillStyle = '#6a8aaa';
+  ctx.fillText('DOWNSTREAM', W - 68, 24);
+}
+
+// ── Sensor update ──────────────────────────────────────────────────
+async function fetchSensors() {
+  try {
+    const res  = await fetch('/api/sensors');
+    const data = await res.json();
+
+    setGauge('rpm',     data.engine_rpm,     0, 7000,  5500, 6500);
+    setGauge('coolant', data.coolant_temp,    60, 130,  105,  115);
+    setGauge('speed',   data.vehicle_speed,   0, 200,   150,  180);
+    setGauge('load',    data.engine_load,     0, 100,   85,   95);
+
+    if (data.mass_air_flow   != null) document.getElementById('maf-val').textContent      = data.mass_air_flow.toFixed(1);
+    if (data.throttle_position != null) document.getElementById('throttle-val').textContent = data.throttle_position.toFixed(1);
+
+    setTrim('ft-short', data.fuel_trim_short);
+    setTrim('ft-long',  data.fuel_trim_long);
+
+    if (data.o2_sensor1_voltage != null) {
+      o2Data.s1.push(data.o2_sensor1_voltage);
+      if (o2Data.s1.length > O2_MAX) o2Data.s1.shift();
+    }
+    if (data.o2_sensor2_voltage != null) {
+      o2Data.s2.push(data.o2_sensor2_voltage);
+      if (o2Data.s2.length > O2_MAX) o2Data.s2.shift();
+    }
+    drawO2Chart();
+
+  } catch(e) { /* server not up yet */ }
+}
+
+function setGauge(id, val, min, max, warn, crit) {
+  if (val == null) return;
+  const vEl = document.getElementById(`v-${id}`);
+  const bEl = document.getElementById(`b-${id}`);
+  const gEl = document.getElementById(`g-${id}`);
+  vEl.textContent = Math.round(val);
+  const pct = Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100));
+  bEl.style.width = pct + '%';
+  gEl.classList.remove('warning','critical');
+  if      (val >= crit) gEl.classList.add('critical');
+  else if (val >= warn) gEl.classList.add('warning');
+}
+
+function setTrim(id, val) {
+  if (val == null) return;
+  const vEl = document.getElementById(`${id}-val`);
+  const bEl = document.getElementById(`${id}-bar`);
+  vEl.textContent = (val >= 0 ? '+' : '') + val.toFixed(1) + '%';
+  vEl.style.color = Math.abs(val) > 15 ? 'var(--red)' : Math.abs(val) > 8 ? 'var(--amber)' : 'var(--cyan)';
+  const pct  = Math.min(50, Math.abs(val) / 30 * 50);
+  const left = val >= 0;
+  bEl.style.width      = pct + '%';
+  bEl.style.left       = left ? '50%' : (50 - pct) + '%';
+  bEl.style.background = Math.abs(val) > 15 ? 'var(--red)' : Math.abs(val) > 8 ? 'var(--amber)' : 'var(--green)';
+}
+
+// ── Health score ───────────────────────────────────────────────────
+async function fetchHealth() {
+  try {
+    const res  = await fetch('/api/health-score');
+    const data = await res.json();
+    if (data.score == null) return;
+
+    const score  = Math.round(data.score);
+    const status = (data.status || 'nominal').toUpperCase();
+    const color  = score >= 85 ? 'var(--green)' : score >= 60 ? 'var(--amber)' : 'var(--red)';
+    const circ   = 314.2;
+    const offset = circ - (score / 100) * circ;
+
+    document.getElementById('healthScore').textContent  = score;
+    document.getElementById('healthStatus').textContent = status;
+    document.getElementById('healthScore').style.color  = color;
+
+    const ring = document.getElementById('healthRing');
+    ring.style.strokeDashoffset = offset;
+    ring.style.stroke = color;
+
+    document.getElementById('miniScore').textContent = score;
+    document.getElementById('miniScore').style.color = color;
+    const miniRing = document.getElementById('miniRing');
+    miniRing.style.stroke = color;
+    miniRing.setAttribute('stroke-dashoffset', (125.6 - (score / 100) * 125.6).toString());
+
+  } catch(e) {}
+}
+
+// ── Alerts ─────────────────────────────────────────────────────────
+async function fetchAlerts() {
+  try {
+    const res  = await fetch('/api/alerts');
+    const data = await res.json();
+    const saEl = document.getElementById('safetyAlert');
+    const prEl = document.getElementById('preventiveAlert');
+    if (data.safety) {
+      saEl.textContent = data.safety;
+      saEl.className = 'alert-content' + (data.safety.includes('EMERGENCY') || data.safety.includes('CRITICAL') ? ' has-critical' : data.safety.includes('WARNING') ? ' has-warning' : '');
+    }
+    if (data.preventive) {
+      prEl.textContent = data.preventive;
+      prEl.className = 'alert-content' + (data.preventive.includes('OVERDUE') ? ' has-warning' : '');
+    }
+  } catch(e) {}
+}
+
+// ── Events ─────────────────────────────────────────────────────────
+async function fetchEvents() {
+  try {
+    const res    = await fetch('/api/events');
+    const events = await res.json();
+    const el     = document.getElementById('eventList');
+    if (!events.length) { el.innerHTML = '<div style="color:var(--text3);font-family:Share Tech Mono,monospace;font-size:9px">No events yet</div>'; return; }
+    el.innerHTML = events.slice(0,5).map(e => `
+      <div class="event-item">
+        <span class="event-sev sev-${e.severity||'info'}">${(e.severity||'INFO').toUpperCase()}</span>
+        <span class="event-text">${e.event_type} — ${JSON.stringify(e.details||{}).slice(0,60)}</span>
+      </div>`).join('');
+  } catch(e) {}
+}
+
+// ── Chat ───────────────────────────────────────────────────────────
+let isStreaming = false;
+
+function quickSend(text) {
+  document.getElementById('chatInput').value = text;
+  sendMessage();
+}
+
+async function sendMessage() {
+  if (isStreaming) return;
+  const input = document.getElementById('chatInput');
+  const msg   = input.value.trim();
+  if (!msg) return;
+
+  input.value = '';
+  isStreaming  = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  appendMsg('user', msg, 'YOU');
+
+  const thinkEl = appendMsg('thinking', '...', 'THINKING');
+  const msgs    = document.getElementById('chatMessages');
+
+  try {
+    const res = await fetch('/api/chat', {
+      method:  'POST',
+      headers: {'Content-Type':'application/json'},
+      body:    JSON.stringify({message: msg}),
+    });
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let   finalEl = null;
+    let   thinkBuf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const text = decoder.decode(value);
+      const lines = text.split('\n');
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const raw = line.slice(5).trim();
+        if (raw === '[DONE]') break;
+        try {
+          const evt = JSON.parse(raw);
+          if (evt.type === 'thinking') {
+            thinkBuf += evt.content;
+            thinkEl.querySelector('.msg-bubble').textContent = thinkBuf.slice(-300);
+            msgs.scrollTop = msgs.scrollHeight;
+          } else if (evt.type === 'tool_start') {
+            appendMsg('tool_start', evt.input || '', `⚙ CALLING: ${evt.tool}`);
+          } else if (evt.type === 'tool_end') {
+            appendMsg('tool_end', evt.output || '', `✓ ${evt.tool}`);
+          } else if (evt.type === 'final') {
+            thinkEl.remove();
+            finalEl = appendMsg('agent', evt.content, 'PREDICTIVE AGENT');
+          } else if (evt.type === 'error') {
+            thinkEl.remove();
+            appendMsg('error', evt.content, 'ERROR');
+          }
+        } catch(e) {}
+      }
+    }
+  } catch(e) {
+    thinkEl.querySelector('.msg-bubble').textContent = 'Connection error. Is the server running?';
+  }
+
+  isStreaming = false;
+  document.getElementById('sendBtn').disabled = false;
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function appendMsg(type, content, role) {
+  const msgs = document.getElementById('chatMessages');
+  const div  = document.createElement('div');
+  div.className = `msg ${type}`;
+  div.innerHTML = `
+    <div class="msg-role">${role}</div>
+    <div class="msg-bubble">${type === 'tool_start' || type === 'tool_end'
+      ? `<span class="tool-tag">${role}</span>${escHtml(content)}`
+      : escHtml(content)}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/\n/g,'<br>');
+}
+
+// ── Boot ───────────────────────────────────────────────────────────
+window.addEventListener('resize', drawO2Chart);
+initChart();
+
+fetchSensors();
+fetchHealth();
+fetchAlerts();
+fetchEvents();
+
+setInterval(fetchSensors, 1000);
+setInterval(fetchHealth,  3000);
+setInterval(fetchAlerts,  10000);
+setInterval(fetchEvents,  5000);
+</script>
+</body>
+</html>

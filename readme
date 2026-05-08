@@ -1,0 +1,92 @@
+ACDT API key
+b8e6bcb4298e432bb78695c1c48a8cc7.-RxLc798G9D_XZ10CJ3kyYmk
+
+
+
+🚗 ACDT v2 — Full Architecture Plan
+Agent Roles
+AgentProviderResponsibilityPredictive Agent (orchestrator)Groq — llama3-8b-8192Talks to user, coordinates the other two, reasons about vehicle future stateSafety AgentOllama — phi3:miniMonitors live sensors, fires emergency alerts, watches thresholdsPreventive AgentOllama — phi3:miniTracks maintenance schedules, part wear, upcoming service needs
+
+
+How They Communicate
+User
+ │
+ ▼
+Predictive Agent (Groq)
+ ├── consult_safety_agent()   ──► Safety Agent (Ollama)
+ │                                 tools: live sensors, thresholds, event log
+ └── consult_preventive_agent() ► Preventive Agent (Ollama)
+                                   tools: maintenance schedule, part history, mileage
+
+
+File Structure
+acdt_camry/
+├── .env
+├── main.py                          # starts everything
+├── config/
+│   └── ditto/
+│       ├── nginx.conf
+│       └── nginx.htpasswd
+├── shared/
+│   ├── config.py                    # sensor fields, thresholds, constants
+│   ├── influx_io.py                 # InfluxDB read/write
+│   ├── mongo_io.py                  # MongoDB events
+│   └── redis_io.py                  # Redis cache
+├── physical/
+│   └── simulator.py                 # OBD-II simulator → direct InfluxDB
+├── intelligent/
+│   ├── neo4j_kg.py                  # knowledge graph
+│   ├── safety_agent.py              # Safety Agent (Ollama)
+│   ├── preventive_agent.py          # Preventive Agent (Ollama)
+│   └── predictive_agent.py          # Predictive Agent (Groq) — orchestrator
+├── service_layer/
+│   ├── ditto_client.py
+│   ├── ditto_sync.py
+│   └── agent_api.py                 # FastAPI + SSE streaming
+└── ui/
+    └── dashboard.html               # Full HUD dashboard + live charts + chat
+
+
+
+UI Plan — Car HUD Dashboard
+┌─────────────────────────────────────────────────────────┐
+│  🚗 ACDT — 2018 Toyota Camry          [LIVE] ●          │
+├──────────────┬──────────────┬──────────────┬────────────┤
+│ Engine RPM   │ Coolant Temp │ Vehicle Speed│ Engine Load│
+│  [gauge]     │  [gauge]     │  [gauge]     │  [gauge]   │
+├──────────────┴──────────────┴──────────────┴────────────┤
+│  O2 Sensors (live chart)  │  Health Score  │  Fuel Trim │
+│  [line chart]             │  [ring gauge]  │  [bar]     │
+├───────────────────────────┴────────────────┴────────────┤
+│ ⚠ SAFETY    │ 🔧 PREVENTIVE  │  🤖 PREDICTIVE AGENT    │
+│ [alerts]    │ [maintenance]  │  [chat interface]        │
+└─────────────┴────────────────┴─────────────────────────┘
+
+
+
+Here are the two commands you need, from your acdt_camry folder:
+
+
+To bring everything UP (after a reboot or downtime)
+
+```bash
+cd ~/Desktop/acdt_camry
+source .venv/bin/activate
+sudo docker compose up -d
+python main.py
+```
+
+- The first line starts all the databases, broker, Ditto, etc.  
+- The second line launches the simulator, data pipeline, predictive model, Ditto sync, rule engine, and the Agent Chat UI at **http://localhost:8501**.
+
+
+
+To bring everything DOWN (and release RAM)
+
+```bash
+# In the terminal running python main.py → press Ctrl+C
+# Then:
+sudo docker compose down
+```
+
+That’s it — your laptop goes back to normal. Nothing restarts automatically on reboot.
