@@ -23,9 +23,14 @@ def log_event(event_type: str, details: dict, severity: str = "info"):
 
 def get_recent_events(limit: int = 10) -> list:
     db = _get_db()
-    return list(db.events.find(
+    events = list(db.events.find(
         {}, {"_id": 0}
     ).sort("timestamp", -1).limit(limit))
+    # Convert datetime objects to strings
+    for e in events:
+        if "timestamp" in e and hasattr(e["timestamp"], "isoformat"):
+            e["timestamp"] = e["timestamp"].isoformat()
+    return events
 
 def log_maintenance(service: str, km: int, notes: str = ""):
     db = _get_db()

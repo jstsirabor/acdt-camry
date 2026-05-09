@@ -5,15 +5,15 @@ Preventive Maintenance Agent — tracks service schedules,
 part wear, and upcoming maintenance needs.
 Model: ministral-3:8b via Ollama Cloud
 """
-from langchain.agents import AgentExecutor, create_react_agent
+from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.memory import ConversationBufferMemory
 from langchain.tools import tool
-from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from shared.config import (OLLAMA_HOST, OLLAMA_API_KEY, PREVENTIVE_MODEL,
                             MAINTENANCE_INTERVALS, ASSET_ID)
 from shared.influx_io import get_latest, get_recent
-from shared.mongo_io import log_maintenance, get_maintenance_history
+from shared.mongo_io import get_maintenance_history
 from shared.redis_io import cache_agent_alert
 
 # ── LLM ───────────────────────────────────────────────────────────
@@ -24,7 +24,7 @@ llm = ChatOpenAI(
     temperature=0,
 )
 
-# ── Simulated odometer (in real system read from OBD-II) ──────────
+# ── Simulated odometer ────────────────────────────────────────────
 _CURRENT_KM = 72000
 
 # ── Tools ─────────────────────────────────────────────────────────
@@ -43,8 +43,14 @@ def get_maintenance_schedule(query: str = "") -> str:
             status = f"DUE SOON in {remaining:,} km"
         else:
             status = f"OK — due in {remaining:,} km"
-        lines.append(f"{service:30s} | last: {last_km:,} km | next: {next_due:,} km | {status}")
-    return "=== Maintenance Schedule (current: {:,} km) ===\n".format(_CURRENT_KM) + "\n".join(lines)
+        lines.append(
+            f"{service:30s} | last: {last_km:,} km | "
+            f"next: {next_due:,} km | {status}"
+        )
+    return (
+        "=== Maintenance Schedule (current: {:,} km) ===\n".format(_CURRENT_KM)
+        + "\n".join(lines)
+    )
 
 @tool
 def get_o2_sensor_health(query: str = "") -> str:
@@ -54,20 +60,30 @@ def get_o2_sensor_health(query: str = "") -> str:
     if o2_1 is None or o2_2 is None:
         return "O2 sensor data not available."
     correlation = abs(o2_1 - o2_2)
-    history_1 = get_recent("o2_sensor1_voltage", minutes=5)
-    history_2 = get_recent("o2_sensor2_voltage", minutes=5)
-    variance_1 = _variance([v for _, v in history_1])
-    variance_2 = _variance([v for _, v in history_2])
-    assessment = []
-    assessment.append(f"Upstream O2 (sensor1): {o2_1:.3f}V  variance={variance_1:.4f}")
-    assessment.append(f"Downstream O2 (sensor2): {o2_2:.3f}V  variance={variance_2:.4f}")
-    assessment.append(f"Voltage differential: {correlation:.3f}V")
+    history_1   = get_recent("o2_sensor1_voltage", minutes=5)
+    history_2   = get_recent("o2_sensor2_voltage", minutes=5)
+    variance_2  = _variance([v for _, v in history_2])
+    assessment  = [
+        f"Upstream O2 (sensor1):   {o2_1:.3f}V",
+        f"Downstream O2 (sensor2): {o2_2:.3f}V",
+        f"Voltage differential:    {correlation:.3f}V",
+        f"Downstream variance:     {variance_2:.4f}",
+    ]
     if variance_2 < 0.001:
-        assessment.append("WARNING: Downstream O2 not switching — possible sensor failure or cat degradation")
+        assessment.append(
+            "WARNING: Downstream O2 not switching — "
+            "possible sensor failure or cat degradation"
+        )
     if correlation < 0.05:
-        assessment.append("WARNING: O2 sensors tracking closely — catalytic converter may be degraded (P0420 risk)")
+        assessment.append(
+            "WARNING: O2 sensors tracking closely — "
+            "catalytic converter may be degraded (P0420 risk)"
+        )
     elif correlation > 0.3:
-        assessment.append("OK: Healthy O2 differential indicates good catalytic converter efficiency")
+        assessment.append(
+            "OK: Healthy O2 differential — "
+            "good catalytic converter efficiency"
+        )
     else:
         assessment.append("MONITOR: O2 differential is borderline — monitor trend")
     return "\n".join(assessment)
@@ -99,15 +115,20 @@ def get_service_history(service_name: str = "") -> str:
     """Get the maintenance history for a specific service or all services."""
     history = get_maintenance_history(service_name if service_name else None)
     if not history:
-        return f"No maintenance history found{' for ' + service_name if service_name else ''}."
-    lines = [f"{h['service']:30s} | {h['km']:,} km | {h['timestamp']} | {h.get('notes','')}"
-             for h in history]
-    return "\n".join(lines)
+        return (
+            f"No maintenance history found"
+            f"{' for ' + service_name if service_name else ''}."
+        )
+    return "\n".join([
+        f"{h['service']:30s} | {h['km']:,} km | "
+        f"{h['timestamp']} | {h.get('notes','')}"
+        for h in history
+    ])
 
 @tool
 def predict_next_failure(query: str = "") -> str:
     """Predict which component is most likely to fail next based on current data and schedule."""
-    overdue = []
+    overdue  = []
     due_soon = []
     for service, info in MAINTENANCE_INTERVALS.items():
         remaining = (info["last_km"] + info["interval_km"]) - _CURRENT_KM
@@ -140,49 +161,41 @@ def _variance(values: list) -> float:
     mean = sum(values) / len(values)
     return sum((v - mean) ** 2 for v in values) / len(values)
 
-tools = [get_maintenance_schedule, get_o2_sensor_health,
-         get_fuel_system_health, get_service_history, predict_next_failure]
+tools = [
+    get_maintenance_schedule,
+    get_o2_sensor_health,
+    get_fuel_system_health,
+    get_service_history,
+    predict_next_failure,
+]
 
 # ── Prompt ────────────────────────────────────────────────────────
-_system = """You are the Preventive Maintenance Agent for a 2018 Toyota Camry digital twin.
+prompt = ChatPromptTemplate.from_messages([
+    ("system", """You are the Preventive Maintenance Agent for a 2018 Toyota Camry digital twin.
 Your job is to track maintenance schedules, assess component wear, and predict upcoming failures
 before they happen. You focus on scheduled maintenance and gradual degradation patterns.
-
-You have access to the following tools:
-{tools}
-
-Use this format:
-Question: the input question you must answer
-Thought: think about what maintenance data to check
-Action: the action to take, must be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-... (repeat as needed)
-Thought: I now know the final answer
-Final Answer: your maintenance assessment with specific recommendations and timelines
 
 Rules:
 - Always check both the maintenance schedule AND sensor-based health indicators
 - Prioritise by urgency: overdue > due soon > monitor
 - Give specific km estimates for when action is needed
-- Flag any sensor patterns suggesting premature wear"""
+- Flag any sensor patterns suggesting premature wear"""),
+    MessagesPlaceholder(variable_name="chat_history"),
+    ("human", "{input}"),
+    MessagesPlaceholder(variable_name="agent_scratchpad"),
+])
 
-prompt = PromptTemplate.from_template(
-    _system
-    + "\n\nChat History:\n{chat_history}"
-    + "\n\nQuestion: {input}"
-    + "\n\nThought:{agent_scratchpad}"
-)
+memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
-memory = ConversationBufferMemory(memory_key="chat_history", return_messages=False)
-
-preventive_agent = create_react_agent(llm=llm, tools=tools, prompt=prompt)
+preventive_agent    = create_openai_tools_agent(llm=llm, tools=tools, prompt=prompt)
 preventive_executor = AgentExecutor(
     agent=preventive_agent, tools=tools, memory=memory,
     verbose=True, handle_parsing_errors=True, max_iterations=8,
 )
 
-def run_preventive_check(query: str = "Assess the vehicle's maintenance status and predict upcoming needs.") -> str:
+def run_preventive_check(
+    query: str = "Assess the vehicle's maintenance status and predict upcoming needs."
+) -> str:
     """Called by the Predictive Agent as a tool."""
     try:
         result = preventive_executor.invoke({"input": query})

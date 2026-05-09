@@ -9,7 +9,12 @@ _client = _write_api = _query_api = None
 def _get_client():
     global _client, _write_api, _query_api
     if _client is None:
-        _client    = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+        _client = InfluxDBClient(
+            url=INFLUX_URL,
+            token=INFLUX_TOKEN,
+            org=INFLUX_ORG,
+            timeout=30_000,        # 30 seconds in milliseconds
+        )
         _write_api = _client.write_api(write_options=SYNCHRONOUS)
         _query_api = _client.query_api()
     return _write_api, _query_api

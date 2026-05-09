@@ -53,7 +53,16 @@ async def health_score():
 @app.get("/api/events")
 async def events():
     from shared.mongo_io import get_recent_events
-    return JSONResponse(get_recent_events(20))
+    import json
+    from datetime import datetime
+
+    def serialize(obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+    events = get_recent_events(20)
+    return JSONResponse(json.loads(json.dumps(events, default=serialize)))
 
 
 @app.get("/api/alerts")
@@ -133,6 +142,38 @@ async def chat_stream(req: ChatRequest):
         },
     )
 
+@app.get("/api/mechanic")
+async def mechanic_twin():
+    from service_layer.mechanic_twin import get_mechanic_twin
+    return JSONResponse(get_mechanic_twin())
+
+@app.get("/api/mechanic/emergency")
+async def mechanic_emergencies():
+    from service_layer.mechanic_twin import get_emergency_queue
+    return JSONResponse(get_emergency_queue())
+
+@app.get("/api/mechanic/maintenance")
+async def mechanic_maintenance():
+    from service_layer.mechanic_twin import get_maintenance_queue
+    return JSONResponse(get_maintenance_queue())
+
+@app.get("/api/mechanic/status")
+async def mechanic_status():
+    from service_layer.mechanic_client import get_mechanic_status
+    return JSONResponse(get_mechanic_status())
+
+@app.get("/api/mechanic/push-test")
+async def mechanic_push_test():
+    """Manually trigger a test push to the mechanic twin."""
+    from service_layer.mechanic_client import push_to_mechanic
+    from datetime import datetime, timezone
+    push_to_mechanic("emergency", {
+        "type":      "test_ping",
+        "severity":  "info",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "report":    "Test connection from ACDT vehicle twin.",
+    })
+    return JSONResponse({"status": "pushed"})
 
 def _sse(payload: dict) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"

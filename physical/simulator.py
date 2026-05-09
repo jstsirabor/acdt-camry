@@ -65,11 +65,19 @@ def generate_reading() -> dict:
 
 def run():
     print("[SIMULATOR] Writing OBD-II telemetry to InfluxDB...")
+    consecutive_errors = 0
     while True:
-        payload = generate_reading()
-        fields  = {k: v for k, v in payload.items() if k in SENSOR_FIELDS}
-        write_point("asset_telemetry", {"asset_id": ASSET_ID}, fields)
-        print(f"[SIMULATOR] {fields}")
+        try:
+            payload = generate_reading()
+            fields  = {k: v for k, v in payload.items() if k in SENSOR_FIELDS}
+            write_point("asset_telemetry", {"asset_id": ASSET_ID}, fields)
+            print(f"[SIMULATOR] {fields}")
+            consecutive_errors = 0
+        except Exception as e:
+            consecutive_errors += 1
+            print(f"[SIMULATOR] Write error ({consecutive_errors}): {e.__class__.__name__} — retrying in 3s...")
+            time.sleep(3)
+            continue
         time.sleep(0.2)
 
 if __name__ == "__main__":

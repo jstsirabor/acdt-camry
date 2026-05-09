@@ -5,23 +5,20 @@ Safety Agent — monitors live sensor data for threshold violations
 and emergency conditions. Reports to the Predictive Agent.
 Model: gemma3:12b via Ollama Cloud
 """
-import os
-from ollama import Client
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain.tools import tool
-from langchain_core.prompts import PromptTemplate
-from langchain_community.chat_models import ChatOllama
 from shared.config import (OLLAMA_HOST, OLLAMA_API_KEY, SAFETY_MODEL,
-                            THRESHOLDS, SENSOR_FIELDS)
+                            PREDICTIVE_MODEL, THRESHOLDS, SENSOR_FIELDS)
+from langchain.agents import AgentExecutor, create_openai_tools_agent
+from langchain.memory import ConversationBufferMemory
+from langchain.tools import tool
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_openai import ChatOpenAI
 from shared.influx_io import get_latest, get_all_latest
 from shared.mongo_io import log_event, get_recent_events
 from shared.redis_io import cache_agent_alert
 
 # ── LLM ───────────────────────────────────────────────────────────
-from langchain_openai import ChatOpenAI
-
 llm = ChatOpenAI(
-    model=SAFETY_MODEL,
+    model=PREDICTIVE_MODEL,    # gpt-oss:120b — follows tool use reliably
     base_url=f"{OLLAMA_HOST}/v1",
     api_key=OLLAMA_API_KEY,
     temperature=0,
@@ -95,53 +92,39 @@ def assess_emergency(query: str = "") -> str:
             continue
         thresh = THRESHOLDS.get(field, {})
         if "critical" in thresh and val >= thresh["critical"]:
-            emergencies.append(f"{field}={val:.2f} EXCEEDS critical threshold {thresh['critical']}")
+            emergencies.append(
+                f"{field}={val:.2f} EXCEEDS critical threshold {thresh['critical']}"
+            )
     if emergencies:
         msg = "EMERGENCY CONDITIONS DETECTED:\n" + "\n".join(emergencies)
         msg += "\n\nRECOMMENDED ACTION: Pull over safely and stop the vehicle immediately."
         log_event("emergency_detected", {"conditions": emergencies}, severity="critical")
         cache_agent_alert("safety", msg)
         return msg
-    cache_agent_alert("safety", "No emergency conditions detected.")
+    cache_agent_alert("safety", "All sensors within safe limits. No emergency action required.")
     return "Vehicle is operating within safe parameters. No emergency action required."
 
 tools = [check_all_sensors, get_sensor, get_recent_safety_events, assess_emergency]
 
 # ── Prompt ────────────────────────────────────────────────────────
-_system = """You are the Safety Agent for a 2018 Toyota Camry digital twin.
-Your ONLY job is to monitor sensor readings and identify safety-critical conditions.
-You must be fast, precise, and err on the side of caution.
+prompt = ChatPromptTemplate.from_messages([
+    ("system", """You are the Safety Agent for a 2018 Toyota Camry digital twin.
+Your ONLY job is to monitor LIVE sensor readings from the vehicle's OBD-II system.
 
-You have access to the following tools:
-{tools}
+CRITICAL RULES:
+- You MUST call check_all_sensors tool FIRST before saying anything
+- NEVER invent, estimate, or assume sensor values
+- ONLY report values returned by your tools
+- If a tool returns no data, say "no data available" — do not fabricate readings
+- Rate overall safety: SAFE / WARNING / CRITICAL based ONLY on tool results"""),
+    MessagesPlaceholder(variable_name="chat_history"),
+    ("human", "{input}"),
+    MessagesPlaceholder(variable_name="agent_scratchpad"),
+])
 
-Use this format:
-Question: the input question you must answer
-Thought: think about what safety checks are needed
-Action: the action to take, must be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-... (repeat as needed)
-Thought: I now know the final answer
-Final Answer: your safety assessment — be direct and clear about any risks
+memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
-Rules:
-- Always check ALL sensors before concluding it is safe
-- If ANY critical threshold is exceeded, recommend stopping the vehicle
-- Include specific sensor values in your response
-- Rate overall safety: SAFE / WARNING / CRITICAL"""
-
-prompt = PromptTemplate.from_template(
-    _system
-    + "\n\nChat History:\n{chat_history}"
-    + "\n\nQuestion: {input}"
-    + "\n\nThought:{agent_scratchpad}"
-)
-
-from langchain.memory import ConversationBufferMemory
-memory = ConversationBufferMemory(memory_key="chat_history", return_messages=False)
-
-safety_agent = create_react_agent(llm=llm, tools=tools, prompt=prompt)
+safety_agent    = create_openai_tools_agent(llm=llm, tools=tools, prompt=prompt)
 safety_executor = AgentExecutor(
     agent=safety_agent, tools=tools, memory=memory,
     verbose=True, handle_parsing_errors=True, max_iterations=6,
