@@ -1,6 +1,9 @@
 ACDT API key
 b8e6bcb4298e432bb78695c1c48a8cc7.-RxLc798G9D_XZ10CJ3kyYmk
-
+ACDT OPenweather API key
+7c5018c38ac2383a96894198850d201e
+ACDT Openrouteservice API Key
+eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImM2NzQ3OWFkMDBlZjQyZDk4ZDRjMmNiYmM0NDNjYTFkIiwiaCI6Im11cm11cjY0In0=
 
 
 🚗 ACDT v2 — Full Architecture Plan
@@ -73,7 +76,7 @@ To bring everything UP (after a reboot or downtime)
 cd ~/Desktop/acdt_camry
 source .venv/bin/activate
 sudo docker compose up -d
-python main.py
+sudo fuser -k 8501/tcp && sleep 1 && python main.py
 ```
 
 - The first line starts all the databases, broker, Ditto, etc.  
@@ -124,4 +127,123 @@ Autonomous Monitor (every 30s)
                  ├── OK → continue
                  └── OVERDUE → notify driver, push to mechanic twin
 
+
+So the UI becomes essentially a smart chat companion — like having a co-pilot that speaks first when something needs attention, and listens when the driver wants to talk.
+
+## ACDT v3 — Final Vision
+
+**The Core Idea**
+The car has a co-pilot. It talks to the driver like a person — proactively when something needs attention, and responsively when the driver asks. The driver sees a clean chat interface, nothing technical. The AI handles everything in the background.
+
+---
+
+**The Chat Experience**
+```
+┌─────────────────────────────────────┐
+│  🚗 ACDT  ●  Good condition         │
+├─────────────────────────────────────┤
+│                                     │
+│  ACDT                               │
+│  Your engine has been running       │
+│  well for the past hour. Coolant    │
+│  temperature is stable at 90°C.     │
+│                          10:32 AM   │
+│                                     │
+│  ACDT                               │
+│  Heads up — your oil change is      │
+│  significantly overdue. I've        │
+│  already flagged this to your       │
+│  mechanic. Want me to help you      │
+│  book a service?                    │
+│                          10:45 AM   │
+│                                     │
+│              YOU                    │
+│      Yes, I'm heading to Lagos      │
+│      Island later today.      →     │
+│                          10:46 AM   │
+│                                     │
+│  ACDT                               │
+│  Got it. It's currently raining     │
+│  on Lagos Island — your brake       │
+│  response is borderline so I'd      │
+│  recommend leaving extra stopping   │
+│  distance. The nearest workshop     │
+│  on your route is AutoFix on        │
+│  Broad Street, 3.2 km away.         │
+│  Should I notify them you're        │
+│  coming?                            │
+│                          10:46 AM   │
+│                                     │
+├─────────────────────────────────────┤
+│  Type a message...          [SEND]  │
+└─────────────────────────────────────┘
+```
+
+---
+
+**What the AI Proactively Says**
+- Safety alerts — elevated temperature, sensor anomalies, threshold warnings
+- Maintenance reminders — overdue services, upcoming due dates
+- Journey context — weather on route, fuel sufficiency, nearest garage if needed
+- Post-drive summaries — "You drove 45km today. Engine health remains good."
+- Degradation updates — "The catalytic converter correlation has worsened slightly this week."
+
+**What the Driver Can Ask**
+- "Am I good to drive to Abuja today?"
+- "How's my fuel looking for this trip?"
+- "What's wrong with my car?"
+- "Book me a service for Saturday"
+- "Is it safe to drive in this rain?"
+
+---
+
+**External Services the Agent Uses**
+- **Weather API** — current and forecast conditions on the driver's route
+- **Maps/Geocoding API** — nearest workshop, distance, estimated travel time
+- **Fuel estimation** — based on current fuel trim, MAF, and trip distance
+- **Workshop notification** — pushes job card to mechanic twin when booking is initiated
+
+---
+
+**How Proactive Messages Work**
+The autonomous monitor already runs every 30 seconds. Instead of just pushing to the mechanic, it now also decides whether to message the driver. The rules are simple:
+
+- CRITICAL finding → message driver immediately, no delay
+- WARNING finding → message driver if not messaged in last 30 minutes
+- INFO / routine update → message driver once per hour maximum
+- Journey started → proactively ask destination, check weather and fuel
+- No issues for 2 hours → send a brief "all good" update
+
+The driver can reply to any message and the conversation continues naturally. If they ignore it, the system respects that and only interrupts again if severity increases.
+
+---
+
+**Confirmed Build Order:**
+
+1. `shared/config.py` — expanded sensors + fault thresholds
+2. `physical/obd_reader.py` — real OBD-II hardware with simulator fallback
+3. `physical/simulator.py` — expanded fault scenarios
+4. `intelligent/tools/external_apis.py` — weather, maps, fuel tools
+5. `intelligent/safety_agent.py` — updated with new sensors + external tools
+6. `intelligent/preventive_agent.py` — updated with new fault scenarios
+7. `intelligent/predictive_agent.py` — updated with journey planning + external tools
+8. `autonomous/monitor.py` — proactive messaging logic
+9. `autonomous/messenger.py` — manages what gets sent to driver and when
+10. `service_layer/agent_api.py` — new chat endpoints supporting proactive messages
+11. `ui/dashboard.html` — new driver-friendly chat UI
+
+---
+
+a clean switch between simulator and real hardware with zero code changes needed when the adapter arrives.
+Here's how it works:
+.env setting: OBD_MODE=simulator  →  uses simulator
+.env setting: OBD_MODE=adapter    →  looks for ELM327
+.env setting: OBD_MODE=auto       →  tries adapter, falls back to simulator
+
+When adapter is not found in auto mode, the system notifies the driver in the chat:ACDT
+No OBD-II adapter detected. Running on 
+simulated vehicle data. Plug in your 
+ELM327 adapter and restart to use live 
+vehicle data.
+When you get the adapter later, you just change one line in .env — nothing else changes.
 

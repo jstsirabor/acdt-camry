@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACDT — Mechanic Interface</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+  :root {
+    --bg:      #010409;
+    --bg2:     #050b12;
+    --panel:   #061018;
+    --border:  #0a2040;
+    --border2: #0d3060;
+    --gold:    #ffa500;
+    --gold2:   #cc7700;
+    --gold3:   #ffcc66;
+    --cyan:    #00d4ff;
+    --green:   #00ff88;
+    --amber:   #ffaa00;
+    --red:     #ff2244;
+    --text:    #c8e8ff;
+    --text2:   #5580aa;
+    --text3:   #2a4060;
+    --glow-g:  0 0 20px rgba(255,165,0,0.4);
+    --glow-r:  0 0 25px rgba(255,34,68,0.5);
+    --glow-c:  0 0 20px rgba(0,212,255,0.3);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,165,0,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,165,0,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+    animation: gridMove 20s linear infinite;
+  }
+  @keyframes gridMove {
+    0%   { background-position: 0 0; }
+    100% { background-position: 40px 40px; }
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 3px,
+      rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none; z-index: 1001;
+  }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    background: linear-gradient(180deg, rgba(255,165,0,0.08) 0%, transparent 100%);
+    border-bottom: 1px solid var(--border2);
+    position: relative; z-index: 10; flex-shrink: 0;
+  }
+  header::after {
+    content: '';
+    position: absolute; bottom: -2px; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), var(--gold3), var(--gold), transparent);
+    animation: scan 3s ease-in-out infinite;
+  }
+  @keyframes scan { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+  .logo-block { display: flex; align-items: center; gap: 14px; }
+  .wrench-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    box-shadow: var(--glow-g);
+    animation: wrenchPulse 3s ease-in-out infinite;
+  }
+  @keyframes wrenchPulse {
+    0%,100% { box-shadow: var(--glow-g); }
+    50%      { box-shadow: 0 0 35px rgba(255,165,0,0.7); }
+  }
+
+  .logo-text { display: flex; flex-direction: column; }
+  .logo-main {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 18px; font-weight: 900;
+    color: var(--gold); letter-spacing: 5px;
+    text-shadow: var(--glow-g);
+  }
+  .logo-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; color: var(--text2); letter-spacing: 3px;
+  }
+
+  .header-center {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .mechanic-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px; font-weight: 600;
+    color: var(--text); letter-spacing: 3px;
+  }
+  .mechanic-id {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; color: var(--text3); letter-spacing: 2px;
+  }
+
+  .header-right { display: flex; align-items: center; gap: 12px; }
+
+  .conn-status {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    border: 1px solid var(--border2);
+    background: rgba(255,165,0,0.05);
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  }
+  .conn-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  .conn-dot.online  { background: var(--green); box-shadow: var(--glow-c); }
+  .conn-dot.offline { background: var(--red); }
+  .conn-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px; font-weight: 600; letter-spacing: 2px;
+  }
+  .conn-text.online  { color: var(--green); }
+  .conn-text.offline { color: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+
+  .nav-link {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; color: var(--text2);
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    text-decoration: none; letter-spacing: 1px;
+    clip-path: polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);
+    transition: all 0.2s;
+  }
+  .nav-link:hover { color: var(--gold); border-color: var(--gold2); background: rgba(255,165,0,0.05); }
+
+  /* ── Main layout ─────────────────────────────────────────── */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 1fr 340px;
+    grid-template-rows: auto 1fr;
+    gap: 12px;
+    padding: 12px;
+    min-height: calc(100vh - 68px);
+    position: relative; z-index: 5;
+  }
+
+  /* ── Vehicle status bar ──────────────────────────────────── */
+  .vehicle-bar {
+    grid-column: 1 / 4;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+  }
+
+  .vstat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    display: flex; flex-direction: column; gap: 2px;
+    position: relative;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  }
+  .vstat::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, var(--gold2), transparent);
+    opacity: 0.5;
+  }
+  .vstat-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 16px; font-weight: 700;
+    color: var(--gold); line-height: 1;
+  }
+  .vstat-val.warn { color: var(--amber); }
+  .vstat-val.crit { color: var(--red); text-shadow: var(--glow-r); }
+  .vstat-lbl {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .vstat-bar { width: 100%; height: 2px; background: var(--border); border-radius: 1px; margin-top: 3px; overflow: hidden; }
+  .vstat-fill { height: 100%; background: linear-gradient(90deg, var(--gold2), var(--gold)); transition: width 0.5s; }
+
+  /* ── Panel base ──────────────────────────────────────────── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .panel::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold2), transparent);
+    opacity: 0.4;
+  }
+
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase;
+  }
+  .panel-title.emergency  { color: var(--red); text-shadow: var(--glow-r); }
+  .panel-title.maintenance{ color: var(--amber); }
+  .panel-title.history    { color: var(--cyan); }
+  .panel-title.chat       { color: var(--gold); }
+
+  .badge {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px; font-weight: 700;
+    padding: 3px 10px; border-radius: 2px;
+    min-width: 28px; text-align: center;
+  }
+  .badge.red   { background: rgba(255,34,68,0.2);  color: var(--red);   border: 1px solid rgba(255,34,68,0.4); }
+  .badge.amber { background: rgba(255,170,0,0.15); color: var(--amber); border: 1px solid rgba(255,170,0,0.3); }
+  .badge.cyan  { background: rgba(0,212,255,0.1);  color: var(--cyan);  border: 1px solid rgba(0,212,255,0.2); }
+
+  /* ── Alert cards ─────────────────────────────────────────── */
+  .alert-list {
+    flex: 1; overflow-y: auto; padding: 10px;
+    display: flex; flex-direction: column; gap: 8px;
+    scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+  }
+
+  .alert-card {
+    border-radius: 2px; padding: 12px 14px;
+    position: relative; animation: cardIn 0.3s ease;
+  }
+  @keyframes cardIn {
+    from { opacity:0; transform: translateX(-8px); }
+    to   { opacity:1; transform: translateX(0); }
+  }
+
+  .alert-card.critical {
+    background: rgba(255,34,68,0.08);
+    border: 1px solid rgba(255,34,68,0.3);
+    border-left: 3px solid var(--red);
+  }
+  .alert-card.warning {
+    background: rgba(255,170,0,0.06);
+    border: 1px solid rgba(255,170,0,0.25);
+    border-left: 3px solid var(--amber);
+  }
+  .alert-card.info {
+    background: rgba(0,212,255,0.04);
+    border: 1px solid rgba(0,212,255,0.15);
+    border-left: 3px solid var(--cyan);
+  }
+  .alert-card.acknowledged {
+    opacity: 0.45;
+    border-left-color: var(--text3);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .alert-top {
+    display: flex; align-items: center;
+    justify-content: space-between; margin-bottom: 6px;
+  }
+  .alert-sev {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px; font-weight: 700; letter-spacing: 2px;
+    padding: 2px 8px; border-radius: 2px;
+  }
+  .sev-critical { background: rgba(255,34,68,0.2);  color: var(--red); }
+  .sev-warning  { background: rgba(255,170,0,0.15); color: var(--amber); }
+  .sev-info     { background: rgba(0,212,255,0.1);  color: var(--cyan); }
+
+  .alert-time {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; color: var(--text3);
+  }
+
+  .alert-type {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px; font-weight: 600;
+    color: var(--text); margin-bottom: 5px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+
+  .alert-report {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; color: var(--text2);
+    line-height: 1.6; max-height: 80px;
+    overflow-y: auto; margin-bottom: 8px;
+    white-space: pre-wrap;
+  }
+
+  .alert-actions { display: flex; gap: 6px; }
+
+  .btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px; font-weight: 600;
+    letter-spacing: 1px; padding: 5px 12px;
+    border: none; cursor: pointer;
+    clip-path: polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);
+    transition: all 0.2s; text-transform: uppercase;
+  }
+  .btn-ack {
+    background: rgba(0,255,136,0.15);
+    color: var(--green);
+    border: 1px solid rgba(0,255,136,0.3);
+  }
+  .btn-ack:hover { background: rgba(0,255,136,0.25); }
+  .btn-detail {
+    background: rgba(255,165,0,0.1);
+    color: var(--gold);
+    border: 1px solid rgba(255,165,0,0.2);
+  }
+  .btn-detail:hover { background: rgba(255,165,0,0.2); }
+  .btn-acked {
+    background: rgba(255,255,255,0.05);
+    color: var(--text3);
+    border: 1px solid var(--border);
+    cursor: default;
+  }
+
+  /* ── Empty state ─────────────────────────────────────────── */
+  .empty-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 40px 20px; gap: 10px;
+    color: var(--text3);
+  }
+  .empty-icon { font-size: 32px; opacity: 0.4; }
+  .empty-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; letter-spacing: 2px;
+    text-align: center;
+  }
+
+  /* ── History / chat panel ────────────────────────────────── */
+  .history-list {
+    flex: 1; overflow-y: auto; padding: 10px;
+    display: flex; flex-direction: column; gap: 6px;
+    scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+  }
+
+  .hist-item {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    display: flex; flex-direction: column; gap: 3px;
+    animation: cardIn 0.3s ease;
+  }
+  .hist-top {
+    display: flex; align-items: center;
+    justify-content: space-between;
+  }
+  .hist-type {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; color: var(--gold); letter-spacing: 1px;
+  }
+  .hist-time {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px; color: var(--text3);
+  }
+  .hist-detail {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px; color: var(--text2); line-height: 1.4;
+  }
+
+  /* ── Chat panel ──────────────────────────────────────────── */
+  .chat-messages {
+    flex: 1; overflow-y: auto; padding: 12px;
+    display: flex; flex-direction: column; gap: 10px;
+    scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+  }
+
+  .chat-msg { display: flex; flex-direction: column; gap: 3px; max-width: 88%; }
+  .chat-msg.mechanic { align-self: flex-end; }
+  .chat-msg.system   { align-self: flex-start; }
+
+  .chat-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px; letter-spacing: 2px; color: var(--text3); padding: 0 4px;
+  }
+  .chat-msg.mechanic .chat-tag { text-align: right; color: var(--gold2); }
+
+  .chat-bubble {
+    padding: 10px 14px; font-size: 13px; line-height: 1.6; word-break: break-word;
+  }
+  .chat-msg.system .chat-bubble {
+    background: rgba(0,212,255,0.05);
+    border: 1px solid rgba(0,212,255,0.15);
+    border-left: 2px solid var(--cyan);
+    clip-path: polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));
+    color: var(--text);
+  }
+  .chat-msg.mechanic .chat-bubble {
+    background: rgba(255,165,0,0.06);
+    border: 1px solid rgba(255,165,0,0.2);
+    border-right: 2px solid var(--gold);
+    clip-path: polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 0px) 100%,0 100%,0 8px);
+    color: var(--text);
+  }
+  .chat-bubble p   { margin: 4px 0; }
+  .chat-bubble strong { color: var(--gold3); font-weight: 600; }
+  .chat-bubble ul  { padding-left: 16px; margin: 4px 0; }
+  .chat-bubble li  { margin: 2px 0; }
+
+  .chat-input-row {
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 8px; align-items: flex-end;
+    flex-shrink: 0;
+  }
+  .chat-input {
+    flex: 1; background: rgba(255,165,0,0.03);
+    border: 1px solid var(--border2); color: var(--text);
+    font-family: 'Rajdhani', sans-serif; font-size: 13px;
+    padding: 8px 12px; outline: none; resize: none;
+    max-height: 80px; min-height: 34px; line-height: 1.4;
+    clip-path: polygon(6px 0%,100% 0%,100% 100%,0% 100%,0% 6px);
+    transition: border-color 0.2s;
+  }
+  .chat-input:focus { border-color: var(--gold2); }
+  .chat-input::placeholder { color: var(--text3); font-size: 11px; }
+
+  .send-btn {
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    border: none; color: #000;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 1px; padding: 10px 16px;
+    cursor: pointer;
+    clip-path: polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .send-btn:hover   { filter: brightness(1.2); }
+  .send-btn:disabled{ opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Detail modal ────────────────────────────────────────── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8); z-index: 500;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--gold2);
+    box-shadow: var(--glow-g);
+    width: 90%; max-width: 700px;
+    max-height: 80vh; overflow-y: auto;
+    padding: 20px; position: relative;
+    clip-path: polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px));
+  }
+  .modal-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px; font-weight: 700;
+    color: var(--gold); letter-spacing: 3px;
+    margin-bottom: 16px;
+  }
+  .modal-body {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; color: var(--text2);
+    line-height: 1.8; white-space: pre-wrap;
+  }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px;
+    background: rgba(255,34,68,0.15);
+    border: 1px solid rgba(255,34,68,0.3);
+    color: var(--red); font-family: 'Orbitron', sans-serif;
+    font-size: 9px; padding: 4px 10px; cursor: pointer;
+  }
+
+  /* ── Scrollbar ───────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 1px; }
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────── -->
+<header>
+  <div class="logo-block">
+    <div class="wrench-icon">🔧</div>
+    <div class="logo-text">
+      <div class="logo-main">ACDT MECH</div>
+      <div class="logo-sub">TECHNICIAN INTERFACE · ORG.EXAMPLE:MECHANIC_001</div>
+    </div>
+  </div>
+  <div class="header-center">
+    <div class="mechanic-name">MASTER TECHNICIAN</div>
+    <div class="mechanic-id">ACDT SERVICE CENTRE · TOYOTA SPECIALIST</div>
+  </div>
+  <div class="header-right">
+    <div class="conn-status">
+      <div class="conn-dot online" id="connDot"></div>
+      <div class="conn-text online" id="connText">VEHICLE ONLINE</div>
+    </div>
+    <a href="/" class="nav-link">◈ DRIVER VIEW</a>
+  </div>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- Vehicle status bar -->
+  <div class="vehicle-bar">
+    <div class="vstat">
+      <div class="vstat-val" id="vs-rpm">—</div>
+      <div class="vstat-lbl">ENGINE RPM</div>
+      <div class="vstat-bar"><div class="vstat-fill" id="vb-rpm" style="width:0%"></div></div>
+    </div>
+    <div class="vstat">
+      <div class="vstat-val" id="vs-coolant">—</div>
+      <div class="vstat-lbl">COOLANT °C</div>
+      <div class="vstat-bar"><div class="vstat-fill" id="vb-coolant" style="width:0%"></div></div>
+    </div>
+    <div class="vstat">
+      <div class="vstat-val" id="vs-speed">—</div>
+      <div class="vstat-lbl">SPEED km/h</div>
+      <div class="vstat-bar"><div class="vstat-fill" id="vb-speed" style="width:0%"></div></div>
+    </div>
+    <div class="vstat">
+      <div class="vstat-val" id="vs-fuel">—</div>
+      <div class="vstat-lbl">FUEL %</div>
+      <div class="vstat-bar"><div class="vstat-fill" id="vb-fuel" style="width:0%"></div></div>
+    </div>
+    <div class="vstat">
+      <div class="vstat-val" id="vs-batt">—</div>
+      <div class="vstat-lbl">BATTERY V</div>
+      <div class="vstat-bar"><div class="vstat-fill" id="vb-batt" style="width:0%"></div></div>
+    </div>
+    <div class="vstat">
+      <div class="vstat-val" id="vs-oil">—</div>
+      <div class="vstat-lbl">OIL TEMP °C</div>
+      <div class="vstat-bar"><div class="vstat-fill" id="vb-oil" style="width:0%"></div></div>
+    </div>
+    <div class="vstat">
+      <div class="vstat-val" id="vs-load">—</div>
+      <div class="vstat-lbl">ENGINE LOAD %</div>
+      <div class="vstat-bar"><div class="vstat-fill" id="vb-load" style="width:0%"></div></div>
+    </div>
+    <div class="vstat">
+      <div class="vstat-val" id="vs-health">—</div>
+      <div class="vstat-lbl">HEALTH SCORE</div>
+      <div class="vstat-bar"><div class="vstat-fill" id="vb-health" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- Emergency queue -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title emergency">🚨 EMERGENCY QUEUE</div>
+      <div class="badge red" id="emergencyCount">0</div>
+    </div>
+    <div class="alert-list" id="emergencyList">
+      <div class="empty-state">
+        <div class="empty-icon">✅</div>
+        <div class="empty-text">NO ACTIVE EMERGENCIES<br>VEHICLE OPERATING NORMALLY</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Maintenance queue -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title maintenance">🔧 MAINTENANCE QUEUE</div>
+      <div class="badge amber" id="maintenanceCount">0</div>
+    </div>
+    <div class="alert-list" id="maintenanceList">
+      <div class="empty-state">
+        <div class="empty-icon">🟢</div>
+        <div class="empty-text">NO MAINTENANCE ALERTS<br>ALL SERVICES UP TO DATE</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mechanic notes / chat -->
+  <div class="panel" style="grid-row: 2">
+    <div class="panel-header">
+      <div class="panel-title chat">◈ MECHANIC NOTES</div>
+      <div class="badge cyan" id="noteCount">0</div>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-msg system">
+        <div class="chat-tag">◈ ACDT SYSTEM</div>
+        <div class="chat-bubble">
+          Mechanic interface online. Monitoring vehicle VIN_1234567890.
+          Emergency and maintenance alerts will appear automatically.
+          Use the notes panel to log observations.
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="noteInput"
+        placeholder="Log a note or observation..."
+        rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addNote()}"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"
+      ></textarea>
+      <button class="send-btn" onclick="addNote()">LOG</button>
+    </div>
+  </div>
+
+  <!-- Event history -->
+  <div class="panel" style="grid-column: 1 / 3; grid-row: 3">
+    <div class="panel-header">
+      <div class="panel-title history">◈ EVENT HISTORY</div>
+      <div class="badge cyan" id="historyCount">0</div>
+    </div>
+    <div class="history-list" id="historyList">
+      <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <div class="empty-text">NO EVENTS RECORDED YET</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Acknowledged log -->
+  <div class="panel" style="grid-row: 3">
+    <div class="panel-header">
+      <div class="panel-title" style="color:var(--green)">◈ ACKNOWLEDGED</div>
+      <div class="badge cyan" id="ackCount">0</div>
+    </div>
+    <div class="alert-list" id="ackList">
+      <div class="empty-state">
+        <div class="empty-icon">📝</div>
+        <div class="empty-text">ACKNOWLEDGED ALERTS<br>WILL APPEAR HERE</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Detail Modal ─────────────────────────────────────────── -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕ CLOSE</button>
+    <div class="modal-title" id="modalTitle">ALERT DETAIL</div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+marked.setOptions({ breaks: true, gfm: true });
+
+// ── State ───────────────────────────────────────────────────────────
+const acknowledged = new Set();
+const notes        = [];
+let   lastEmerCount = 0;
+let   lastMaintCount = 0;
+
+// ── Time ────────────────────────────────────────────────────────────
+function fmtTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString([], { day:'2-digit', month:'short' }) + ' ' +
+         d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+}
+
+// ── Vehicle stats ───────────────────────────────────────────────────
+function setStat(id, val, min, max, warn, crit, dec = 0) {
+  if (val == null) return;
+  const el = document.getElementById(`vs-${id}`);
+  const bar= document.getElementById(`vb-${id}`);
+  el.textContent = val.toFixed(dec);
+  const pct = Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100));
+  bar.style.width = pct + '%';
+  el.className = 'vstat-val';
+  if      (crit && val >= crit) el.classList.add('crit');
+  else if (warn && val >= warn) el.classList.add('warn');
+}
+
+async function fetchSensors() {
+  try {
+    const data = await (await fetch('/api/sensors')).json();
+    setStat('rpm',     data.engine_rpm,     0,    7000, 5500, 6500);
+    setStat('coolant', data.coolant_temp,    60,   130,  105,  115, 1);
+    setStat('speed',   data.vehicle_speed,   0,    200,  150,  180);
+    setStat('fuel',    data.fuel_level,      0,    100,  15,   5,   1);
+    setStat('batt',    data.battery_voltage, 10.5, 15,   null, null, 1);
+    setStat('oil',     data.oil_temp,        60,   160,  130,  150, 1);
+    setStat('load',    data.engine_load,     0,    100,  85,   95,  1);
+  } catch(e) {}
+}
+
+async function fetchHealth() {
+  try {
+    const data  = await (await fetch('/api/health-score')).json();
+    if (data.score == null) return;
+    const score = Math.round(data.score);
+    const el    = document.getElementById('vs-health');
+    const bar   = document.getElementById('vb-health');
+    el.textContent = score;
+    bar.style.width = score + '%';
+    bar.style.background = score >= 85 ? 'var(--green)' : score >= 60 ? 'var(--amber)' : 'var(--red)';
+    el.className = 'vstat-val' + (score < 60 ? ' crit' : score < 85 ? ' warn' : '');
+  } catch(e) {}
+}
+
+// ── Connection status ───────────────────────────────────────────────
+async function checkConnection() {
+  try {
+    const data = await (await fetch('/api/mechanic/status')).json();
+    const dot  = document.getElementById('connDot');
+    const txt  = document.getElementById('connText');
+    if (data.connected) {
+      dot.className = 'conn-dot online';
+      txt.className = 'conn-text online';
+      txt.textContent = 'VEHICLE ONLINE';
+    } else {
+      dot.className = 'conn-dot offline';
+      txt.className = 'conn-text offline';
+      txt.textContent = 'VEHICLE OFFLINE';
+    }
+  } catch(e) {
+    document.getElementById('connDot').className = 'conn-dot offline';
+    document.getElementById('connText').className = 'conn-text offline';
+    document.getElementById('connText').textContent = 'CONNECTION LOST';
+  }
+}
+
+// ── Alert card builder ──────────────────────────────────────────────
+function buildAlertCard(item, idx, queueType) {
+  const id       = `${queueType}-${idx}`;
+  const isAcked  = acknowledged.has(id);
+  const sev      = (item.severity || 'info').toLowerCase();
+  const type     = (item.type || 'alert').replace(/_/g, ' ').toUpperCase();
+  const report   = item.report || 'No details available.';
+  const time     = fmtDate(item.timestamp);
+
+  const card = document.createElement('div');
+  card.className = `alert-card ${isAcked ? 'acknowledged' : sev}`;
+  card.id = `card-${id}`;
+
+  card.innerHTML = `
+    <div class="alert-top">
+      <span class="alert-sev sev-${sev}">${sev.toUpperCase()}</span>
+      <span class="alert-time">${time}</span>
+    </div>
+    <div class="alert-type">${type}</div>
+    <div class="alert-report">${report.slice(0, 200)}${report.length > 200 ? '...' : ''}</div>
+    <div class="alert-actions">
+      ${isAcked
+        ? `<button class="btn btn-acked">✓ ACKNOWLEDGED</button>`
+        : `<button class="btn btn-ack" onclick="acknowledge('${id}','${queueType}','${type}')">✓ ACKNOWLEDGE</button>`
+      }
+      <button class="btn btn-detail" onclick="showDetail('${type}','${report.replace(/'/g,"\\'")}','${time}','${sev}')">
+        ◈ FULL REPORT
+      </button>
+    </div>`;
+  return card;
+}
+
+// ── Emergency queue ─────────────────────────────────────────────────
+async function fetchEmergency() {
+  try {
+    const items = await (await fetch('/api/mechanic/emergency')).json();
+    const list  = document.getElementById('emergencyList');
+    const badge = document.getElementById('emergencyCount');
+    badge.textContent = items.length;
+
+    if (!items.length) {
+      list.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">✅</div>
+        <div class="empty-text">NO ACTIVE EMERGENCIES<br>VEHICLE OPERATING NORMALLY</div>
+      </div>`;
+      return;
+    }
+
+    // Only rebuild if count changed
+    if (items.length !== lastEmerCount) {
+      list.innerHTML = '';
+      items.forEach((item, i) => list.appendChild(buildAlertCard(item, i, 'emer')));
+      lastEmerCount = items.length;
+
+      // Flash badge if new critical alert
+      if (items[0]?.severity === 'critical') {
+        badge.style.animation = 'none';
+        badge.offsetHeight;
+        badge.style.animation = 'alertFlash 0.5s ease 3';
+      }
+    }
+  } catch(e) {}
+}
+
+// ── Maintenance queue ───────────────────────────────────────────────
+async function fetchMaintenance() {
+  try {
+    const items = await (await fetch('/api/mechanic/maintenance')).json();
+    const list  = document.getElementById('maintenanceList');
+    const badge = document.getElementById('maintenanceCount');
+    badge.textContent = items.length;
+
+    if (!items.length) {
+      list.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">🟢</div>
+        <div class="empty-text">NO MAINTENANCE ALERTS<br>ALL SERVICES UP TO DATE</div>
+      </div>`;
+      return;
+    }
+
+    if (items.length !== lastMaintCount) {
+      list.innerHTML = '';
+      items.forEach((item, i) => list.appendChild(buildAlertCard(item, i, 'maint')));
+      lastMaintCount = items.length;
+    }
+  } catch(e) {}
+}
+
+// ── Event history ───────────────────────────────────────────────────
+async function fetchHistory() {
+  try {
+    const events = await (await fetch('/api/events')).json();
+    const list   = document.getElementById('historyList');
+    const badge  = document.getElementById('historyCount');
+    badge.textContent = events.length;
+
+    if (!events.length) {
+      list.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <div class="empty-text">NO EVENTS RECORDED YET</div>
+      </div>`;
+      return;
+    }
+
+    list.innerHTML = '';
+    events.forEach(e => {
+      const item = document.createElement('div');
+      item.className = 'hist-item';
+      const detail = typeof e.details === 'object'
+        ? JSON.stringify(e.details).slice(0, 100)
+        : String(e.details || '').slice(0, 100);
+      item.innerHTML = `
+        <div class="hist-top">
+          <span class="hist-type">[${(e.severity||'INFO').toUpperCase()}] ${e.event_type || 'event'}</span>
+          <span class="hist-time">${fmtDate(e.timestamp)}</span>
+        </div>
+        <div class="hist-detail">${detail}</div>`;
+      list.appendChild(item);
+    });
+  } catch(e) {}
+}
+
+// ── Acknowledge ─────────────────────────────────────────────────────
+async function acknowledge(id, queueType, alertType) {
+  acknowledged.add(id);
+  const card = document.getElementById(`card-${id}`);
+  if (card) {
+    card.className = 'alert-card acknowledged';
+    const actions = card.querySelector('.alert-actions');
+    if (actions) {
+      const ackBtn = actions.querySelector('.btn-ack');
+      if (ackBtn) {
+        ackBtn.className = 'btn btn-acked';
+        ackBtn.textContent = '✓ ACKNOWLEDGED';
+      }
+    }
+  }
+
+  // Log to system
+  try {
+    await fetch('/api/mechanic/acknowledge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: alertType, mechanic: 'Master Technician' })
+    });
+  } catch(e) {}
+
+  // Add to acknowledged panel
+  addAcknowledgedEntry(alertType);
+
+  // Add system note
+  addSystemMessage(`Alert acknowledged: ${alertType}`);
+}
+
+function addAcknowledgedEntry(type) {
+  const list = document.getElementById('ackList');
+  const badge= document.getElementById('ackCount');
+  if (list.querySelector('.empty-state')) list.innerHTML = '';
+
+  const item = document.createElement('div');
+  item.className = 'hist-item';
+  item.innerHTML = `
+    <div class="hist-top">
+      <span class="hist-type" style="color:var(--green)">✓ ${type}</span>
+      <span class="hist-time">${fmtTime()}</span>
+    </div>
+    <div class="hist-detail" style="color:var(--text3)">Acknowledged by Master Technician</div>`;
+  list.insertBefore(item, list.firstChild);
+  badge.textContent = parseInt(badge.textContent || '0') + 1;
+}
+
+// ── Notes / chat ────────────────────────────────────────────────────
+function addNote() {
+  const input = document.getElementById('noteInput');
+  const text  = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+
+  const msgs  = document.getElementById('chatMessages');
+  const badge = document.getElementById('noteCount');
+  const div   = document.createElement('div');
+  div.className = 'chat-msg mechanic';
+  div.innerHTML = `
+    <div class="chat-tag">◈ MASTER TECHNICIAN · ${fmtTime()}</div>
+    <div class="chat-bubble">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  badge.textContent = parseInt(badge.textContent || '0') + 1;
+  notes.push({ text, time: new Date().toISOString() });
+}
+
+function addSystemMessage(text) {
+  const msgs = document.getElementById('chatMessages');
+  const div  = document.createElement('div');
+  div.className = 'chat-msg system';
+  div.innerHTML = `
+    <div class="chat-tag">◈ ACDT SYSTEM · ${fmtTime()}</div>
+    <div class="chat-bubble">${text}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ── Detail modal ────────────────────────────────────────────────────
+function showDetail(type, report, time, sev) {
+  document.getElementById('modalTitle').textContent = `${type} · ${time}`;
+  document.getElementById('modalBody').textContent  = report;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modalOverlay') || e.currentTarget.classList.contains('modal-close')) {
+    document.getElementById('modalOverlay').classList.remove('open');
+  }
+}
+
+// ── Boot ────────────────────────────────────────────────────────────
+fetchSensors();
+fetchHealth();
+checkConnection();
+fetchEmergency();
+fetchMaintenance();
+fetchHistory();
+
+setInterval(fetchSensors,     2000);
+setInterval(fetchHealth,      5000);
+setInterval(checkConnection,  10000);
+setInterval(fetchEmergency,   8000);
+setInterval(fetchMaintenance, 15000);
+setInterval(fetchHistory,     20000);
+</script>
+</body>
+</html>
