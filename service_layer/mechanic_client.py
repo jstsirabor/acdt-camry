@@ -132,3 +132,37 @@ def get_mechanic_status() -> dict:
         }
     except Exception as e:
         return {"connected": False, "error": str(e)}
+
+def get_emergency_queue() -> list:
+    """Get the emergency queue — from the remote mechanic twin if
+    reachable, otherwise from local MongoDB fallback storage."""
+    return _get_queue("emergency", "emergency_queue", "active_emergencies")
+
+
+def get_maintenance_queue() -> list:
+    """Get the maintenance queue — from the remote mechanic twin if
+    reachable, otherwise from local MongoDB fallback storage."""
+    return _get_queue("maintenance", "maintenance_queue", "pending_services")
+
+
+def _get_queue(queue_type: str, feature: str, prop_key: str) -> list:
+    if is_mechanic_connected():
+        try:
+            r = httpx.get(
+                f"{MECHANIC_URL}/api/2/things/{MECHANIC_THING_ID}"
+                f"/features/{feature}/properties",
+                auth=AUTH, timeout=TIMEOUT,
+            )
+            if r.status_code == 200:
+                return r.json().get(prop_key, [])
+        except Exception as e:
+            print(f"[MECHANIC CLIENT] Remote queue fetch failed: {e} — falling back to local")
+
+    # Fallback: read whatever was stored locally while the mechanic was offline
+    try:
+        from shared.mongo_io import get_recent_events
+        events = get_recent_events(limit=20, event_type=f"mechanic_offline_{queue_type}")
+        return [e["details"] for e in events]
+    except Exception as e:
+        print(f"[MECHANIC CLIENT] Local queue fetch failed: {e}")
+        return []

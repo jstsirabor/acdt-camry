@@ -21,10 +21,11 @@ def log_event(event_type: str, details: dict, severity: str = "info"):
         "timestamp":  datetime.now(timezone.utc),
     })
 
-def get_recent_events(limit: int = 10) -> list:
+def get_recent_events(limit: int = 10, event_type: str = None) -> list:
     db = _get_db()
+    query = {"event_type": event_type} if event_type else {}
     events = list(db.events.find(
-        {}, {"_id": 0}
+        query, {"_id": 0}
     ).sort("timestamp", -1).limit(limit))
     # Convert datetime objects to strings
     for e in events:
