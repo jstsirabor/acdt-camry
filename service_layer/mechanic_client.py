@@ -30,6 +30,10 @@ MECHANIC_THING_ID = os.getenv("MECHANIC_THING_ID",       "org.example:MECHANIC_0
 AUTH    = (MECHANIC_USER, MECHANIC_PASSWORD)
 TIMEOUT = httpx.Timeout(15.0)
 
+# How many alerts to retain per queue before the oldest ones drop off.
+# Keeps the mechanic dashboard from growing an unbounded, unscannable list.
+MAX_QUEUE_SIZE = 8
+
 # Ditto's HTTP API requires this exact content type for PATCH requests to
 # a properties resource (RFC 7396 JSON Merge Patch). The generic
 # "application/json" that httpx's json= shortcut sends is rejected by
@@ -72,9 +76,9 @@ def push_to_mechanic(queue_type: str, packet: dict):
         props = r.json() if r.status_code == 200 else {}
         queue = props.get(prop_key, [])
 
-        # Add new packet (keep last 20)
+        # Add new packet (keep last MAX_QUEUE_SIZE)
         queue.insert(0, packet)
-        queue = queue[:20]
+        queue = queue[:MAX_QUEUE_SIZE]
 
         body = {
             prop_key:       queue,
@@ -183,7 +187,7 @@ def _get_queue(queue_type: str, feature: str, prop_key: str) -> list:
     # Fallback: read whatever was stored locally while the mechanic was offline
     try:
         from shared.mongo_io import get_recent_events
-        events = get_recent_events(limit=20, event_type=f"mechanic_offline_{queue_type}")
+        events = get_recent_events(limit=MAX_QUEUE_SIZE, event_type=f"mechanic_offline_{queue_type}")
         return [e["details"] for e in events]
     except Exception as e:
         print(f"[MECHANIC CLIENT] Local queue fetch failed: {e}")
