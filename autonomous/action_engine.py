@@ -5,12 +5,20 @@ Action Engine — executes autonomous actions when agents
 detect critical or warning conditions. Pushes to a
 remote mechanic digital twin over HTTP.
 """
+import re
 from datetime import datetime, timezone
 from shared.mongo_io import log_event
 from shared.redis_io import cache_agent_alert
 
 CRITICAL_KEYWORDS = ["EMERGENCY", "CRITICAL", "Pull over", "stop the vehicle", "stop driving"]
 WARNING_KEYWORDS  = ["WARNING", "OVERDUE", "DUE SOON", "borderline", "at risk"]
+
+# Matches the agent's explicit "Overall safety rating: CRITICAL/WARNING/SAFE"
+# line (allows for markdown bold like **Overall safety rating:** **CRITICAL**).
+RATING_RE = re.compile(
+    r"overall\s+safety\s+rating\**\s*:?\**\s*(critical|warning|safe)",
+    re.IGNORECASE,
+)
 
 
 def classify_severity(text: str) -> str:
@@ -20,6 +28,15 @@ def classify_severity(text: str) -> str:
     if text.strip().startswith("Safety Agent error"):
         return "warning"
 
+    # Prefer the agent's own explicit rating over loose keyword scanning —
+    # otherwise phrases like "No critical conditions detected" get
+    # misread as an actual CRITICAL because they contain the word "critical".
+    match = RATING_RE.search(text)
+    if match:
+        rating = match.group(1).lower()
+        return "info" if rating == "safe" else rating
+
+    # Fallback for text with no explicit rating line (e.g. maintenance reports).
     upper = text.upper()
     if any(k.upper() in upper for k in CRITICAL_KEYWORDS):
         return "critical"
