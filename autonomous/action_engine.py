@@ -1,4 +1,3 @@
-cat > autonomous/action_engine.py << 'EOF'
 """
 autonomous/action_engine.py
 ────────────────────────────
@@ -14,19 +13,12 @@ from shared.redis_io import cache_agent_alert
 CRITICAL_KEYWORDS = ["EMERGENCY", "CRITICAL", "Pull over", "stop the vehicle", "stop driving"]
 WARNING_KEYWORDS  = ["WARNING", "OVERDUE", "DUE SOON", "borderline", "at risk"]
 
-# Matches the agent's explicit "Overall safety rating: CRITICAL/WARNING/SAFE"
-# line (allows for markdown bold like **Overall safety rating:** **CRITICAL**).
 RATING_RE = re.compile(
     r"overall\s+safety\s+rating\**\s*:?\**\s*(critical|warning|safe)",
     re.IGNORECASE,
 )
 
-# ── Alert dedup state ────────────────────────────────────────────
-# Prevents re-pushing the same severity to the mechanic twin on every
-# monitor tick. Keyed by "safety" / "maintenance". Re-pushes when the
-# severity changes (e.g. warning -> critical, or resolves to info) OR
-# when COOLDOWN_SECONDS has elapsed since the last push of that severity.
-COOLDOWN_SECONDS = 300  # 5 minutes
+COOLDOWN_SECONDS = 300
 _last_push_state = {
     "safety":      {"severity": None, "at": None},
     "maintenance": {"severity": None, "at": None},
@@ -38,13 +30,11 @@ def _should_push(channel: str, severity: str) -> bool:
     now = datetime.now(timezone.utc)
 
     if state["severity"] != severity:
-        # Severity changed (escalation, de-escalation, or first alert) — always push.
         state["severity"] = severity
         state["at"] = now
         return True
 
     if state["at"] is None or (now - state["at"]).total_seconds() >= COOLDOWN_SECONDS:
-        # Same severity persisting — re-push only after cooldown.
         state["at"] = now
         return True
 
@@ -52,21 +42,14 @@ def _should_push(channel: str, severity: str) -> bool:
 
 
 def classify_severity(text: str) -> str:
-    # An agent-level failure must never be silently classified as "info"/SAFE.
-    # Treat it as a warning so it gets logged loudly and pushed to the mechanic
-    # twin instead of being reported to the driver as "all sensors normal".
     if text.strip().startswith("Safety Agent error"):
         return "warning"
 
-    # Prefer the agent's own explicit rating over loose keyword scanning —
-    # otherwise phrases like "No critical conditions detected" get
-    # misread as an actual CRITICAL because they contain the word "critical".
     match = RATING_RE.search(text)
     if match:
         rating = match.group(1).lower()
         return "info" if rating == "safe" else rating
 
-    # Fallback for text with no explicit rating line (e.g. maintenance reports).
     upper = text.upper()
     if any(k.upper() in upper for k in CRITICAL_KEYWORDS):
         return "critical"
@@ -109,8 +92,6 @@ def act_on_safety(report: str):
         cache_agent_alert("safety", f"⚠ WARNING: {report[:200]}")
         _push_to_mechanic("emergency", packet)
     else:
-        # SAFE — just log locally, do NOT push to mechanic. Also resets dedup
-        # state so the next fault (even if same severity as a prior one) alerts fresh.
         _last_push_state["safety"] = {"severity": None, "at": None}
         print("[ACTION ENGINE] ✅ Safety check passed — no action needed")
         log_event("autonomous_safety_check", {
@@ -151,4 +132,3 @@ def _push_to_mechanic(queue_type: str, packet: dict):
         push_to_mechanic(queue_type, packet)
     except Exception as e:
         print(f"[ACTION ENGINE] Mechanic push failed: {e}")
-EOF
