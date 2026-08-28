@@ -136,8 +136,107 @@ services:
     depends_on: [ditto-gateway]
     restart: unless-stopped
 
+  # ── Mechanic-side Ditto stack (separate instance, separate network alias) ──
+  mechanic-ditto-mongodb:
+    image: mongo:6
+    container_name: mechanic-ditto-mongodb
+    volumes: [mechanic_ditto_mongo:/data/db]
+    healthcheck:
+      test: ["CMD","mongosh","--quiet","--eval","db.runCommand({ping:1}).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  mechanic-ditto-policies:
+    image: eclipse/ditto-policies:3.5.0
+    container_name: mechanic-ditto-policies
+    environment:
+      MONGO_DB_URI: mongodb://mechanic-ditto-mongodb:27017/policies
+      DITTO_DEVOPS_SECURE_STATUS: "false"
+    depends_on:
+      mechanic-ditto-mongodb:
+        condition: service_healthy
+    networks:
+      default:
+        aliases: [mechanic-ditto-cluster]
+    restart: unless-stopped
+
+  mechanic-ditto-things:
+    image: eclipse/ditto-things:3.5.0
+    container_name: mechanic-ditto-things
+    environment:
+      MONGO_DB_URI: mongodb://mechanic-ditto-mongodb:27017/things
+      DITTO_DEVOPS_SECURE_STATUS: "false"
+    depends_on:
+      mechanic-ditto-mongodb:
+        condition: service_healthy
+    networks:
+      default:
+        aliases: [mechanic-ditto-cluster]
+    restart: unless-stopped
+
+  mechanic-ditto-things-search:
+    image: eclipse/ditto-things-search:3.5.0
+    container_name: mechanic-ditto-things-search
+    environment:
+      MONGO_DB_URI: mongodb://mechanic-ditto-mongodb:27017/search
+    depends_on:
+      mechanic-ditto-mongodb:
+        condition: service_healthy
+    networks:
+      default:
+        aliases: [mechanic-ditto-cluster]
+    restart: unless-stopped
+
+  mechanic-ditto-connectivity:
+    image: eclipse/ditto-connectivity:3.5.0
+    container_name: mechanic-ditto-connectivity
+    environment:
+      MONGO_DB_URI: mongodb://mechanic-ditto-mongodb:27017/connectivity
+    depends_on:
+      mechanic-ditto-mongodb:
+        condition: service_healthy
+    networks:
+      default:
+        aliases: [mechanic-ditto-cluster]
+    restart: unless-stopped
+
+  mechanic-ditto-gateway:
+    image: eclipse/ditto-gateway:3.5.0
+    container_name: mechanic-ditto-gateway
+    environment:
+      DITTO_DEVOPS_SECURE_STATUS: "false"
+      ENABLE_PRE_AUTHENTICATION: "true"
+      DEVOPS_PASSWORD: devops
+    depends_on:
+      mechanic-ditto-policies:
+        condition: service_started
+      mechanic-ditto-things:
+        condition: service_started
+      mechanic-ditto-things-search:
+        condition: service_started
+      mechanic-ditto-connectivity:
+        condition: service_started
+    networks:
+      default:
+        aliases: [mechanic-ditto-cluster]
+    ports: ["8091:8080"]
+    restart: unless-stopped
+
+  mechanic-ditto-nginx:
+    image: nginx:1.27-alpine
+    container_name: mechanic-ditto-nginx
+    ports: ["8090:80"]
+    volumes:
+      - ./config/mechanic-ditto/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/mechanic-ditto/nginx.htpasswd:/etc/nginx/ditto.htpasswd:ro
+    depends_on: [mechanic-ditto-gateway]
+    restart: unless-stopped
+
 volumes:
   influxdb_data:
   mongodb_data:
   neo4j_data:
   ditto_mongo:
+  mechanic_ditto_mongo:
