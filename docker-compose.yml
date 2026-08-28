@@ -154,6 +154,7 @@ services:
     environment:
       MONGO_DB_URI: mongodb://mechanic-ditto-mongodb:27017/policies
       DITTO_DEVOPS_SECURE_STATUS: "false"
+      JAVA_TOOL_OPTIONS: "-Xmx192m -Xms96m"
     depends_on:
       mechanic-ditto-mongodb:
         condition: service_healthy
@@ -168,6 +169,7 @@ services:
     environment:
       MONGO_DB_URI: mongodb://mechanic-ditto-mongodb:27017/things
       DITTO_DEVOPS_SECURE_STATUS: "false"
+      JAVA_TOOL_OPTIONS: "-Xmx192m -Xms96m"
     depends_on:
       mechanic-ditto-mongodb:
         condition: service_healthy
@@ -181,6 +183,7 @@ services:
     container_name: mechanic-ditto-things-search
     environment:
       MONGO_DB_URI: mongodb://mechanic-ditto-mongodb:27017/search
+      JAVA_TOOL_OPTIONS: "-Xmx192m -Xms96m"
     depends_on:
       mechanic-ditto-mongodb:
         condition: service_healthy
@@ -194,6 +197,7 @@ services:
     container_name: mechanic-ditto-connectivity
     environment:
       MONGO_DB_URI: mongodb://mechanic-ditto-mongodb:27017/connectivity
+      JAVA_TOOL_OPTIONS: "-Xmx192m -Xms96m"
     depends_on:
       mechanic-ditto-mongodb:
         condition: service_healthy
@@ -209,6 +213,7 @@ services:
       DITTO_DEVOPS_SECURE_STATUS: "false"
       ENABLE_PRE_AUTHENTICATION: "true"
       DEVOPS_PASSWORD: devops
+      JAVA_TOOL_OPTIONS: "-Xmx192m -Xms96m"
     depends_on:
       mechanic-ditto-policies:
         condition: service_started
