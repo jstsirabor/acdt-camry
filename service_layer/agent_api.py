@@ -299,6 +299,49 @@ async def set_typing():
         pass
     return JSONResponse({"status": "ok"})
 
+
+@app.get("/api/mechanic/obd-mode")
+async def get_obd_mode():
+    """Report the currently active data source and whether a live
+    override is set (vs. following OBD_MODE / auto-detection)."""
+    import redis
+    from shared.config import REDIS_HOST, REDIS_PORT
+    from physical.obd_reader import get_data_source
+    override = None
+    try:
+        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+        val = r.get("obd:mode_override")
+        if val and val.strip():
+            override = val.strip().lower()
+    except Exception:
+        pass
+    return JSONResponse({"active_source": get_data_source(), "override": override})
+
+
+@app.post("/api/mechanic/obd-mode")
+async def set_obd_mode(body: dict):
+    """Set or clear the live OBD data-source override. Pass
+    {"mode": "simulator"|"adapter"|"mqtt"|"auto"} to force a source, or
+    {"mode": ""} (or omit "mode") to clear the override and go back to
+    whatever OBD_MODE/.env + auto-detection would normally choose.
+    Takes effect on the next read_sensors() call — no restart needed."""
+    import redis
+    from shared.config import REDIS_HOST, REDIS_PORT
+    mode = (body.get("mode") or "").strip().lower()
+    valid = {"simulator", "adapter", "mqtt", "auto"}
+    if mode and mode not in valid:
+        return JSONResponse({"status": "error", "message": f"Invalid mode '{mode}'"}, status_code=400)
+    try:
+        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+        if mode:
+            r.set("obd:mode_override", mode)
+        else:
+            r.delete("obd:mode_override")
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+    return JSONResponse({"status": "ok", "override": mode or None})
+
+
 @app.get("/api/mechanic/push-test")
 async def mechanic_push_test():
     from service_layer.mechanic_client import push_to_mechanic
