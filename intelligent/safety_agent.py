@@ -38,10 +38,16 @@ def check_all_sensors(query: str = "") -> str:
             continue
         report.append(f"{field}: {val:.2f}")
         thresh = THRESHOLDS.get(field, {})
+        # High-is-bad checks (existing behaviour)
         if "critical" in thresh and val >= thresh["critical"]:
             violations.append(f"CRITICAL: {field}={val:.2f} (limit={thresh['critical']})")
         elif "warning" in thresh and val >= thresh["warning"]:
             violations.append(f"WARNING: {field}={val:.2f} (limit={thresh['warning']})")
+        # Low-is-bad checks (e.g. fuel_level, oil_pressure trending down)
+        if "critical_low" in thresh and val <= thresh["critical_low"]:
+            violations.append(f"CRITICAL: {field}={val:.2f} (limit={thresh['critical_low']})")
+        elif "warning_low" in thresh and val <= thresh["warning_low"]:
+            violations.append(f"WARNING: {field}={val:.2f} (limit={thresh['warning_low']})")
         if "min" in thresh and val < thresh["min"]:
             violations.append(f"LOW: {field}={val:.2f} (min={thresh['min']})")
         if "max" in thresh and val > thresh["max"]:
@@ -69,6 +75,10 @@ def get_sensor(sensor_name: str) -> str:
     if "critical" in thresh and val >= thresh["critical"]:
         status = "CRITICAL"
     elif "warning" in thresh and val >= thresh["warning"]:
+        status = "WARNING"
+    if "critical_low" in thresh and val <= thresh["critical_low"]:
+        status = "CRITICAL"
+    elif "warning_low" in thresh and val <= thresh["warning_low"]:
         status = "WARNING"
     if "min" in thresh and val < thresh["min"]:
         status = "LOW"

@@ -63,8 +63,8 @@ THRESHOLDS = {
     "engine_rpm":         {"warning": 5500, "critical": 6500},
     "engine_load":        {"warning": 85,   "critical": 95},
     "oil_temp":           {"warning": 130,  "critical": 150},
-    "oil_pressure":       {"min": 20,       "warning_low": 25},
-    "battery_voltage":    {"min": 11.5,     "warning": 12.0, "max": 15.0},
+    "oil_pressure":       {"min": 20,       "warning_low": 25, "critical_low": 20},
+    "battery_voltage":    {"min": 11.5,     "warning_low": 12.0, "max": 15.0},
     "alternator_voltage": {"min": 13.5,     "max": 14.8},
     "brake_pressure":     {"min": 0,        "max": 150},
     "tyre_pressure_fl":   {"min": 28,       "max": 36},
@@ -80,7 +80,7 @@ THRESHOLDS = {
     "misfire_count_cyl4": {"warning": 5,    "critical": 20},
     "o2_sensor1_voltage": {"min": 0.1,      "max": 0.9},
     "o2_sensor2_voltage": {"min": 0.1,      "max": 0.9},
-    "fuel_level":         {"warning": 15,   "critical": 5},
+    "fuel_level":         {"warning_low": 15, "critical_low": 5},
 }
 
 # ── Fault scenarios ────────────────────────────────────────────────
