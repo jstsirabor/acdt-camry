@@ -172,5 +172,10 @@ DITTO_URL      = os.getenv("DITTO_URL",      "http://localhost:8080")
 DITTO_USER     = os.getenv("DITTO_USER",     "ditto")
 DITTO_PASSWORD = os.getenv("DITTO_PASSWORD", "ditto")
 
+MECHANIC_DITTO_URL      = os.getenv("MECHANIC_DITTO_URL",      "http://localhost:8090")
+MECHANIC_DITTO_USER     = os.getenv("MECHANIC_DITTO_USER",     "ditto")
+MECHANIC_DITTO_PASSWORD = os.getenv("MECHANIC_DITTO_PASSWORD", "ditto")
+MECHANIC_THING_ID       = os.getenv("MECHANIC_THING_ID",       "org.example:MECHANIC_001")
+
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", 8501))

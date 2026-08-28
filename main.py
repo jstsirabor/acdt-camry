@@ -40,6 +40,19 @@ def wait_for_ditto(retries: int = 12, delay: int = 10):
     print("[MAIN] WARNING: Ditto unavailable — skipping provisioning.")
 
 
+def wait_for_mechanic_ditto(retries: int = 12, delay: int = 10):
+    from service_layer.ditto_client import provision_mechanic_ditto
+    print("[MAIN] Waiting for Mechanic Ditto gateway...")
+    for attempt in range(retries):
+        try:
+            provision_mechanic_ditto()
+            return
+        except Exception:
+            print(f"[MAIN] Mechanic Ditto not ready, retrying... ({attempt+1}/{retries})")
+            time.sleep(delay)
+    print("[MAIN] WARNING: Mechanic Ditto unavailable — skipping provisioning.")
+
+
 def start_simulator():
     time.sleep(5)
     from physical.simulator import run
@@ -60,6 +73,7 @@ def main():
 
     # 1. Provision Ditto (vehicle + mechanic twins)
     wait_for_ditto()
+    wait_for_mechanic_ditto()
 
     # 2. Build Neo4j knowledge graph
     wait_for_neo4j()
