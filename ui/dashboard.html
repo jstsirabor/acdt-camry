@@ -131,6 +131,7 @@
   }
   .source-chip.live { color: var(--ok); border-color: rgba(89,201,165,0.35); background: rgba(89,201,165,0.06); }
   .source-chip.sim  { color: var(--paper2); border-color: var(--line2); }
+  .source-chip.none { color: var(--amber-dim); border-color: rgba(230,180,70,0.35); background: rgba(230,180,70,0.06); }
 
   /* ── Stats strip — gauge readouts ────────────────────────── */
   .stats-strip {
@@ -699,6 +700,9 @@ async function fetchDataSource() {
     } else if (data.source === 'mqtt') {
       chip.textContent = '◈ LIVE (MQTT)';
       chip.className = 'source-chip live';
+    } else if (data.source === 'none') {
+      chip.textContent = '◈ WAITING FOR DATA';
+      chip.className = 'source-chip none';
     } else {
       chip.textContent = '◈ SIMULATOR';
       chip.className = 'source-chip sim';

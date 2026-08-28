@@ -10,6 +10,7 @@ Expanded OBD-II simulator with multiple fault scenarios:
 """
 import random
 import time
+import threading
 from shared.config import ASSET_ID, SENSOR_FIELDS
 from shared.influx_io import write_point
 
@@ -124,6 +125,12 @@ _tyre    = TyreLeak()
 _misfire = MisfireSimulator()
 _tick    = 0
 
+# Set by main.py's watcher thread to stop run() cleanly when the live
+# data source is no longer "simulator"/"auto"-falling-back-to-simulator,
+# so simulated telemetry isn't written to InfluxDB while a real source
+# (adapter/mqtt) is selected.
+stop_event = threading.Event()
+
 
 def generate_reading() -> dict:
     global _tick
@@ -181,9 +188,14 @@ def generate_reading() -> dict:
 
 
 def run():
+    """Write simulated telemetry to InfluxDB in a loop until stop_event
+    is set. main.py's watcher thread sets/clears stop_event and restarts
+    this in a fresh thread as the live data-source mode changes, so this
+    only runs while simulator/auto-fallback mode is actually active."""
     print("[SIMULATOR] Writing expanded OBD-II telemetry to InfluxDB...")
+    stop_event.clear()
     consecutive_errors = 0
-    while True:
+    while not stop_event.is_set():
         try:
             payload = generate_reading()
             fields  = {k: v for k, v in payload.items()
@@ -197,9 +209,12 @@ def run():
         except Exception as e:
             consecutive_errors += 1
             print(f"[SIMULATOR] Write error ({consecutive_errors}): {e.__class__.__name__} — retrying in 3s")
-            time.sleep(3)
+            if stop_event.wait(3):
+                break
             continue
-        time.sleep(0.2)
+        if stop_event.wait(0.2):
+            break
+    print("[SIMULATOR] Stopped.")
 
 
 if __name__ == "__main__":

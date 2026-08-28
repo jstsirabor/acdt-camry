@@ -94,6 +94,17 @@
 
   .header-right { display:flex; align-items:center; gap:10px; }
 
+  .source-chip {
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px; color: var(--amber);
+    padding: 4px 10px; border: 1px solid var(--line2);
+    letter-spacing:1.5px; background: var(--panel);
+    white-space: nowrap;
+  }
+  .source-chip.live { color: var(--ok); border-color: rgba(89,201,165,0.35); background: rgba(89,201,165,0.06); }
+  .source-chip.sim  { color: var(--paper2); border-color: var(--line2); }
+  .source-chip.none { color: var(--amber-dim); border-color: rgba(230,180,70,0.35); background: rgba(230,180,70,0.06); }
+
   .conn-status {
     display:flex; align-items:center; gap:8px;
     padding: 6px 14px;
@@ -415,6 +426,7 @@
     .logo-sub { display:none; }
     .mechanic-id { display:none; }
     .nav-link { padding:5px 8px; font-size:9px; }
+    .source-chip { font-size:8px; padding:4px 8px; }
     .vehicle-bar { grid-template-columns: repeat(2,1fr); }
     .vstat-val { font-size:16px; }
     .alert-actions { flex-direction:column; }
@@ -449,6 +461,7 @@
       <button class="obd-btn" data-mode="mqtt" onclick="setObdMode('mqtt')">MQTT</button>
       <button class="obd-btn is-auto" data-mode="auto" onclick="setObdMode('')">Auto</button>
     </div>
+    <div class="source-chip sim" id="sourceChip">◈ SIMULATOR</div>
     <div class="conn-status">
       <div class="conn-dot online" id="connDot"></div>
       <div class="conn-text online" id="connText">VEHICLE ONLINE</div>
@@ -599,13 +612,6 @@ let   lastEmerCount = 0;
 let   lastMaintCount = 0;
 
 // ── Alert data store ────────────────────────────────────────────
-// Report text can contain newlines, quotes, and backticks. Embedding
-// it directly inside an inline onclick="...('${report}')" attribute
-// is fragile — a literal newline or an unescaped quote breaks the JS
-// parse of that attribute silently, which is why "FULL REPORT" (and
-// any button built the same way) could fail with no visible error.
-// Instead we store each alert's full data in this map, keyed by a
-// plain alphanumeric id, and buttons only ever reference that id.
 const alertStore = {};
 
 function fmtTime(iso) {
@@ -686,14 +692,36 @@ async function checkConnection() {
   }
 }
 
+// ── Data-source status chip ─────────────────────────────────────
+// Unlike the OBD toggle (which shows the selected override), this
+// reflects whether data is actually flowing right now — important
+// for a mechanic debugging a "selected MQTT but nothing's arriving"
+// situation.
+async function fetchDataSource() {
+  try {
+    const data = await (await fetch('/api/data-source')).json();
+    const chip = document.getElementById('sourceChip');
+    if (data.source === 'adapter') {
+      chip.textContent = '◈ LIVE OBD-II — RECEIVING DATA';
+      chip.className = 'source-chip live';
+    } else if (data.source === 'mqtt') {
+      chip.textContent = '◈ LIVE (MQTT) — RECEIVING DATA';
+      chip.className = 'source-chip live';
+    } else if (data.source === 'none') {
+      chip.textContent = '◈ NO DATA';
+      chip.className = 'source-chip none';
+    } else {
+      chip.textContent = '◈ SIMULATOR';
+      chip.className = 'source-chip sim';
+    }
+  } catch(e) {}
+}
+
 // ── OBD data-source toggle ─────────────────────────────────────
-// Reflects/controls the live Redis override (obd:mode_override) via
-// /api/mechanic/obd-mode. Empty/absent override = "auto" (follows
-// OBD_MODE / auto-detection as normal).
 async function fetchObdMode() {
   try {
     const data = await (await fetch('/api/mechanic/obd-mode')).json();
-    const active = data.override || 'auto'; // which button should show as active
+    const active = data.override || 'auto';
     document.querySelectorAll('.obd-btn').forEach(btn => {
       const btnMode = btn.dataset.mode;
       btn.classList.toggle('active', btnMode === active);
@@ -714,6 +742,7 @@ async function setObdMode(mode) {
   buttons.forEach(b => b.disabled = false);
   fetchObdMode();
   fetchSensors();
+  fetchDataSource();
 }
 
 function buildAlertCard(item, idx, queueType) {
@@ -724,8 +753,6 @@ function buildAlertCard(item, idx, queueType) {
   const report   = item.report || 'No details available.';
   const time     = fmtDate(item.timestamp);
 
-  // Store the raw data — no escaping needed here, this is a JS object,
-  // not an HTML attribute.
   alertStore[id] = { type, report, time, sev };
 
   const card = document.createElement('div');
@@ -750,8 +777,6 @@ function buildAlertCard(item, idx, queueType) {
       <button class="btn btn-diag" data-id="${id}" data-action="diagnose">▶ DIAGNOSE THIS</button>
     </div>`;
 
-  // Event delegation via data-id avoids ever putting report text inside
-  // an HTML attribute — this is what fixes the FULL REPORT button.
   card.querySelector('.btn-detail').addEventListener('click', () => showDetail(id));
   card.querySelector('.btn-diag').addEventListener('click', () => diagnoseThis(id));
   const ackBtn = card.querySelector('.btn-ack');
@@ -893,9 +918,6 @@ function addAcknowledgedEntry(type) {
 const ATDT_SESSION_ID = 'mechanic_001';
 let atdtMode = 'diagnose'; // 'diagnose' | 'guidance'
 
-// Known failure-mode keys the diagnostic agent can surface — used only
-// client-side to detect when to offer a "Start Repair" button. Keep in
-// sync with neo4j_kg.py's FailureMode names.
 const KNOWN_FAILURE_MODES = [
   'cat_efficiency_below_threshold',
   'engine_overheating',
@@ -984,8 +1006,6 @@ async function sendAtdtGuidanceDirect(query) {
   }
 }
 
-// Send an alert card's full report straight into the diagnose chat,
-// so the mechanic doesn't have to retype what's already on screen.
 function diagnoseThis(id) {
   const alert = alertStore[id];
   if (!alert) return;
@@ -1070,6 +1090,7 @@ fetchEmergency();
 fetchMaintenance();
 fetchHistory();
 fetchObdMode();
+fetchDataSource();
 
 setInterval(fetchSensors,     2000);
 setInterval(fetchHealth,      5000);
@@ -1078,6 +1099,7 @@ setInterval(fetchEmergency,   8000);
 setInterval(fetchMaintenance, 15000);
 setInterval(fetchHistory,     20000);
 setInterval(fetchObdMode,     10000);
+setInterval(fetchDataSource,  10000);
 </script>
 </body>
 </html>

@@ -23,7 +23,7 @@ import time
 from shared.config import OBD_MODE, OBD_PORT, OBD_BAUDRATE
 
 # ── Current data source ────────────────────────────────────────────
-_data_source = None   # 'adapter' | 'mqtt' | 'simulator'
+_data_source = None   # 'adapter' | 'mqtt' | 'simulator' | 'none'
 _obd_conn    = None
 _active_override = None  # last override value applied, so we only re-init on change
 
@@ -86,8 +86,8 @@ def _initialise_for_mode(mode: str) -> str:
             _data_source = "adapter"
             print("[OBD READER] ✅ Adapter connected")
         else:
-            _data_source = "simulator"
-            print("[OBD READER] ⚠ Adapter not found — falling back to simulator")
+            _data_source = "none"
+            print("[OBD READER] ⚠ Adapter not found — no live data available")
             _notify_driver_no_adapter()
         return _data_source
 
@@ -99,8 +99,8 @@ def _initialise_for_mode(mode: str) -> str:
             print("[OBD READER] ✅ MQTT subscriber started, waiting for ESP32 data...")
             _notify_driver_mqtt_started()
         else:
-            _data_source = "simulator"
-            print("[OBD READER] ⚠ MQTT connection failed — falling back to simulator")
+            _data_source = "none"
+            print("[OBD READER] ⚠ MQTT connection failed — no live data available")
             _notify_driver_no_adapter()
         return _data_source
 
@@ -122,7 +122,7 @@ def initialise() -> str:
     """
     Initialise the data source. A live Redis override takes priority
     over OBD_MODE if set; otherwise falls back to OBD_MODE as before.
-    Returns: 'adapter' | 'mqtt' | 'simulator'
+    Returns: 'adapter' | 'mqtt' | 'simulator' | 'none'
     """
     global _active_override
     override = _get_live_override()
@@ -153,6 +153,8 @@ def read_sensors() -> dict:
         return _read_from_adapter()
     if _data_source == "mqtt":
         return _read_from_mqtt()
+    if _data_source == "none":
+        return _no_data_reading()
     return _read_from_simulator()
 
 
@@ -201,10 +203,10 @@ def _read_from_adapter() -> dict:
         return data
 
     except Exception as e:
-        print(f"[OBD READER] Read error: {e} — switching to simulator")
-        _data_source = "simulator"
+        print(f"[OBD READER] Read error: {e} — no live data available")
+        _data_source = "none"
         _notify_driver_adapter_lost()
-        return _read_from_simulator()
+        return _no_data_reading()
 
 
 def _read_from_mqtt() -> dict:
@@ -214,10 +216,11 @@ def _read_from_mqtt() -> dict:
 
     if not is_receiving_data():
         # No message in the last 30s — ESP32 may be offline, out of range,
-        # or mid-cycle switching between the ELM327 and home WiFi.
-        # Don't permanently fall back, just serve the simulator for this
-        # cycle and keep listening; the ESP32 publishes every ~5s.
-        return _read_from_simulator()
+        # or mid-cycle switching between the ELM327 and home WiFi. Reflect
+        # that honestly instead of quietly serving fake numbers labeled
+        # "LIVE (MQTT)". Stay in "mqtt" mode (don't permanently fall back)
+        # since the ESP32 publishes every ~5s and may just be mid-cycle.
+        return _no_data_reading()
 
     return read_latest()
 
@@ -228,13 +231,21 @@ def _read_from_simulator() -> dict:
     return generate_reading()
 
 
+def _no_data_reading() -> dict:
+    """All-None reading used whenever a live source is selected but not
+    currently producing data. Used instead of the simulator so the driver
+    never sees fabricated numbers presented as real."""
+    from shared.config import SENSOR_FIELDS, ASSET_ID
+    data = {f: None for f in SENSOR_FIELDS}
+    data["asset_id"] = ASSET_ID
+    return data
+
+
 # ── Driver notifications ───────────────────────────────────────────
 def _notify_driver_no_adapter():
     _push_system_message(
-        "No OBD-II adapter detected. I'm running on simulated vehicle data "
-        "for now. When your ELM327 adapter arrives, plug it into your car's "
-        "OBD-II port and set OBD_MODE=auto in your settings — I'll switch "
-        "to live data automatically. Would you like to continue with the simulator?"
+        "No live OBD-II data available right now. Once your adapter/ESP32 "
+        "is connected and the car is on, I'll switch to live data automatically."
     )
 
 
@@ -256,8 +267,8 @@ def _notify_driver_adapter_connected():
 
 def _notify_driver_adapter_lost():
     _push_system_message(
-        "Lost connection to the OBD-II adapter. Switching to simulated data. "
-        "Please check the adapter connection and restart if needed."
+        "Lost connection to the OBD-II adapter. No live data is available "
+        "right now. Please check the adapter connection and restart if needed."
     )
 
 
@@ -265,8 +276,7 @@ def _notify_driver_mqtt_started():
     _push_system_message(
         "Connected to the cloud telemetry broker. I'm now listening for "
         "live data from your ESP32 — this works from anywhere, not just "
-        "your home network. Simulated data will show until the first "
-        "reading arrives."
+        "your home network. No data will show until the first reading arrives."
     )
 
 
