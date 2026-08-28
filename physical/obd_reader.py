@@ -9,6 +9,13 @@ OBD_MODE=mqtt       → read telemetry published by the ESP32 over a cloud
                       MQTT broker (see physical/mqtt_reader.py)
 OBD_MODE=auto       → try hardware, fall back to simulator if not found
 
+Live override (no restart needed): set the Redis key "obd:mode_override"
+to "adapter" | "mqtt" | "simulator" | "auto" to force a source for
+testing/demoing, and delete the key (or set it to "" ) to go back to
+whatever OBD_MODE / auto-detection would normally choose. Checked on
+every read_sensors() call, so it can be flipped live without touching
+.env or restarting the service.
+
 When running in simulator mode due to missing adapter, a system
 message is pushed to the driver chat explaining the situation.
 """
@@ -18,6 +25,23 @@ from shared.config import OBD_MODE, OBD_PORT, OBD_BAUDRATE
 # ── Current data source ────────────────────────────────────────────
 _data_source = None   # 'adapter' | 'mqtt' | 'simulator'
 _obd_conn    = None
+_active_override = None  # last override value applied, so we only re-init on change
+
+_OVERRIDE_REDIS_KEY = "obd:mode_override"
+
+
+def _get_live_override() -> str | None:
+    """Check Redis for a live mode override. Returns None if unset/unreachable."""
+    try:
+        import redis
+        from shared.config import REDIS_HOST, REDIS_PORT
+        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+        val = r.get(_OVERRIDE_REDIS_KEY)
+        if val and val.strip():
+            return val.strip().lower()
+        return None
+    except Exception:
+        return None
 
 
 def detect_adapter() -> bool:
@@ -44,20 +68,19 @@ def connect_adapter() -> bool:
         return False
 
 
-def initialise() -> str:
-    """
-    Initialise the data source based on OBD_MODE.
-    Returns: 'adapter' | 'mqtt' | 'simulator'
-    """
+def _initialise_for_mode(mode: str) -> str:
+    """Initialise the data source for a specific mode string
+    ('simulator' | 'adapter' | 'mqtt' | 'auto'). Shared by initialise()
+    and the live-override re-init path."""
     global _data_source
 
-    if OBD_MODE == "simulator":
+    if mode == "simulator":
         _data_source = "simulator"
         print("[OBD READER] Mode: SIMULATOR (forced)")
         _notify_driver_simulator(forced=True)
         return _data_source
 
-    if OBD_MODE == "adapter":
+    if mode == "adapter":
         print("[OBD READER] Mode: ADAPTER (forced)")
         if connect_adapter():
             _data_source = "adapter"
@@ -68,7 +91,7 @@ def initialise() -> str:
             _notify_driver_no_adapter()
         return _data_source
 
-    if OBD_MODE == "mqtt":
+    if mode == "mqtt":
         print("[OBD READER] Mode: MQTT (cloud broker)")
         from physical.mqtt_reader import start_mqtt
         if start_mqtt():
@@ -95,12 +118,37 @@ def initialise() -> str:
     return _data_source
 
 
+def initialise() -> str:
+    """
+    Initialise the data source. A live Redis override takes priority
+    over OBD_MODE if set; otherwise falls back to OBD_MODE as before.
+    Returns: 'adapter' | 'mqtt' | 'simulator'
+    """
+    global _active_override
+    override = _get_live_override()
+    _active_override = override
+    mode = override if override in ("simulator", "adapter", "mqtt", "auto") else OBD_MODE
+    if override and override not in ("simulator", "adapter", "mqtt", "auto"):
+        print(f"[OBD READER] Ignoring invalid override value '{override}', using OBD_MODE={OBD_MODE}")
+    return _initialise_for_mode(mode)
+
+
 def get_data_source() -> str:
     return _data_source or "simulator"
 
 
 def read_sensors() -> dict:
-    """Read sensors from whichever source is active."""
+    """Read sensors from whichever source is active. Re-checks the live
+    override each call (cheap Redis GET) so a change takes effect on the
+    next read without restarting the service."""
+    global _active_override
+    override = _get_live_override()
+    if override != _active_override:
+        print(f"[OBD READER] Live override changed ({_active_override!r} → {override!r}) — reinitialising")
+        _active_override = override
+        mode = override if override in ("simulator", "adapter", "mqtt", "auto") else OBD_MODE
+        _initialise_for_mode(mode)
+
     if _data_source == "adapter":
         return _read_from_adapter()
     if _data_source == "mqtt":

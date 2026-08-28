@@ -129,6 +129,8 @@
     padding: 4px 10px; border: 1px solid var(--line2);
     letter-spacing:1.5px; background: var(--panel);
   }
+  .source-chip.live { color: var(--ok); border-color: rgba(89,201,165,0.35); background: rgba(89,201,165,0.06); }
+  .source-chip.sim  { color: var(--paper2); border-color: var(--line2); }
 
   /* ── Stats strip — gauge readouts ────────────────────────── */
   .stats-strip {
@@ -389,7 +391,7 @@
       <div class="status-dot-hud good" id="statusDot"></div>
       <div class="status-text-hud good" id="statusTxt">ALL SYSTEMS NOMINAL</div>
     </div>
-    <div class="source-chip" id="sourceChip">◈ SIMULATOR</div>
+    <div class="source-chip sim" id="sourceChip">◈ SIMULATOR</div>
   </div>
 </div>
 
@@ -683,11 +685,24 @@ async function fetchHealth() {
   } catch(e) {}
 }
 
+// Read-only data-source indicator. Distinguishes real live data (OBD-II
+// adapter or MQTT/ESP32 telemetry) from simulated data — no control here
+// by design; switching sources is a technician action in the mechanic
+// console, not something a driver should be able to do mid-drive.
 async function fetchDataSource() {
   try {
     const data = await (await fetch('/api/data-source')).json();
-    document.getElementById('sourceChip').textContent =
-      data.source === 'adapter' ? '◈ LIVE OBD-II' : '◈ SIMULATOR';
+    const chip = document.getElementById('sourceChip');
+    if (data.source === 'adapter') {
+      chip.textContent = '◈ LIVE OBD-II';
+      chip.className = 'source-chip live';
+    } else if (data.source === 'mqtt') {
+      chip.textContent = '◈ LIVE (MQTT)';
+      chip.className = 'source-chip live';
+    } else {
+      chip.textContent = '◈ SIMULATOR';
+      chip.className = 'source-chip sim';
+    }
   } catch(e) {}
 }
 

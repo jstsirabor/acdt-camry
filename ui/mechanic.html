@@ -118,6 +118,39 @@
   }
   .nav-link:hover { color: var(--amber); border-color: var(--amber-dim); }
 
+  /* ── OBD data-source toggle ──────────────────────────────── */
+  .obd-toggle {
+    display:flex; align-items:center; gap:6px;
+    padding: 5px 8px 5px 10px;
+    border: 1px solid var(--line2);
+    background: var(--panel);
+  }
+  .obd-toggle-label {
+    font-family:'IBM Plex Mono', monospace;
+    font-size:8px; color: var(--paper3);
+    letter-spacing:1px; text-transform:uppercase;
+    margin-right:2px;
+  }
+  .obd-btn {
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px; font-weight:600; letter-spacing:0.5px;
+    padding: 5px 9px;
+    border: 1px solid var(--line2);
+    background: transparent; color: var(--paper3);
+    cursor: pointer; text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  .obd-btn:hover { color: var(--paper2); border-color: var(--paper3); }
+  .obd-btn.active {
+    color: var(--amber); border-color: rgba(255,176,32,0.4);
+    background: rgba(255,176,32,0.08);
+  }
+  .obd-btn.active.is-auto {
+    color: var(--ok); border-color: rgba(89,201,165,0.4);
+    background: rgba(89,201,165,0.08);
+  }
+  .obd-btn:disabled { opacity:0.4; cursor: wait; }
+
   .main {
     display:grid;
     grid-template-columns: 1fr 1fr 340px;
@@ -387,6 +420,8 @@
     .chat-input-row { flex-wrap:wrap; }
     .send-btn { width:100%; }
     .modal { width:94%; padding:14px; }
+    .obd-toggle { flex-wrap:wrap; }
+    .obd-toggle-label { width:100%; margin-bottom:2px; }
   }
 </style>
 </head>
@@ -405,6 +440,13 @@
     <div class="mechanic-id">ACDT Service Centre · Toyota Specialist</div>
   </div>
   <div class="header-right">
+    <div class="obd-toggle" id="obdToggle">
+      <span class="obd-toggle-label">Data Source</span>
+      <button class="obd-btn" data-mode="simulator" onclick="setObdMode('simulator')">Sim</button>
+      <button class="obd-btn" data-mode="adapter" onclick="setObdMode('adapter')">Adapter</button>
+      <button class="obd-btn" data-mode="mqtt" onclick="setObdMode('mqtt')">MQTT</button>
+      <button class="obd-btn is-auto" data-mode="auto" onclick="setObdMode('')">Auto</button>
+    </div>
     <div class="conn-status">
       <div class="conn-dot online" id="connDot"></div>
       <div class="conn-text online" id="connText">VEHICLE ONLINE</div>
@@ -622,6 +664,36 @@ async function checkConnection() {
     document.getElementById('connText').className = 'conn-text offline';
     document.getElementById('connText').textContent = 'CONNECTION LOST';
   }
+}
+
+// ── OBD data-source toggle ─────────────────────────────────────
+// Reflects/controls the live Redis override (obd:mode_override) via
+// /api/mechanic/obd-mode. Empty/absent override = "auto" (follows
+// OBD_MODE / auto-detection as normal).
+async function fetchObdMode() {
+  try {
+    const data = await (await fetch('/api/mechanic/obd-mode')).json();
+    const active = data.override || 'auto'; // which button should show as active
+    document.querySelectorAll('.obd-btn').forEach(btn => {
+      const btnMode = btn.dataset.mode;
+      btn.classList.toggle('active', btnMode === active);
+    });
+  } catch(e) {}
+}
+
+async function setObdMode(mode) {
+  const buttons = document.querySelectorAll('.obd-btn');
+  buttons.forEach(b => b.disabled = true);
+  try {
+    await fetch('/api/mechanic/obd-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode })
+    });
+  } catch(e) {}
+  buttons.forEach(b => b.disabled = false);
+  fetchObdMode();
+  fetchSensors();
 }
 
 function buildAlertCard(item, idx, queueType) {
@@ -931,6 +1003,7 @@ checkConnection();
 fetchEmergency();
 fetchMaintenance();
 fetchHistory();
+fetchObdMode();
 
 setInterval(fetchSensors,     2000);
 setInterval(fetchHealth,      5000);
@@ -938,6 +1011,7 @@ setInterval(checkConnection,  10000);
 setInterval(fetchEmergency,   8000);
 setInterval(fetchMaintenance, 15000);
 setInterval(fetchHistory,     20000);
+setInterval(fetchObdMode,     10000);
 </script>
 </body>
 </html>
