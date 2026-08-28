@@ -1,150 +1,194 @@
 """
-autonomous/messenger.py
-────────────────────────
-Proactive messenger — decides when and what to send
-to the driver chat without being asked.
+service_layer/mechanic_client.py
+─────────────────────────────────
+Mechanic Client — connects to a REMOTE mechanic's
+Eclipse Ditto instance and pushes emergency/maintenance
+packets to their digital twin.
 
-Rules:
-- CRITICAL finding    → message immediately, always
-- WARNING finding     → message if last warning was >30 min ago
-- INFO / routine      → message once per hour max
-- Journey started     → ask destination, check weather + fuel
-- All clear 2hrs      → brief check-in message
+The mechanic runs their OWN ACDT instance. You connect
+to their Ditto endpoint using their credentials.
+
+Configure via .env:
+  MECHANIC_DITTO_URL      = https://mechanic.acdt.local:8080
+  MECHANIC_DITTO_USER     = ditto
+  MECHANIC_DITTO_PASSWORD = ditto
+  MECHANIC_THING_ID       = org.example:MECHANIC_001
 """
 import json
-import time
-from datetime import datetime, timezone, timedelta
-from shared.config import REDIS_HOST, REDIS_PORT
+import os
+import httpx
+from datetime import datetime, timezone
+from dotenv import load_dotenv
+load_dotenv()
 
-_last_sent = {
-    "critical":    None,
-    "warning":     None,
-    "info":        None,
-    "journey":     None,
-}
-WARNING_COOLDOWN  = 30 * 60   # 30 minutes in seconds
-INFO_COOLDOWN     = 60 * 60   # 1 hour
+# ── Remote mechanic Ditto config (from .env) ───────────────────────
+MECHANIC_URL      = os.getenv("MECHANIC_DITTO_URL",      "http://localhost:8080")
+MECHANIC_USER     = os.getenv("MECHANIC_DITTO_USER",     "ditto")
+MECHANIC_PASSWORD = os.getenv("MECHANIC_DITTO_PASSWORD", "ditto")
+MECHANIC_THING_ID = os.getenv("MECHANIC_THING_ID",       "org.example:MECHANIC_001")
+
+AUTH    = (MECHANIC_USER, MECHANIC_PASSWORD)
+TIMEOUT = httpx.Timeout(15.0)
+
+# How many alerts to retain per queue before the oldest ones drop off.
+# Keeps the mechanic dashboard from growing an unbounded, unscannable list.
+MAX_QUEUE_SIZE = 8
+
+# Ditto's HTTP API requires this exact content type for PATCH requests to
+# a properties resource (RFC 7396 JSON Merge Patch). The generic
+# "application/json" that httpx's json= shortcut sends is rejected by
+# Ditto with 415 Unsupported Media Type.
+DITTO_MERGE_PATCH_HEADERS = {"Content-Type": "application/merge-patch+json"}
 
 
-def _get_redis():
-    import redis
-    return redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-
-
-def _user_is_typing() -> bool:
-    """Check if the driver is currently typing in the chat box."""
+def is_mechanic_connected() -> bool:
+    """Check if the remote mechanic Ditto is reachable."""
     try:
-        return _get_redis().get("driver:typing") == "1"
+        r = httpx.get(
+            f"{MECHANIC_URL}/api/2/things/{MECHANIC_THING_ID}",
+            auth=AUTH, timeout=httpx.Timeout(5.0),
+        )
+        return r.status_code in (200, 404)
     except Exception:
         return False
 
 
-def push_message(content: str, role: str = "acdt",
-                 msg_type: str = "info", force: bool = False):
+def push_to_mechanic(queue_type: str, packet: dict):
     """
-    Push a proactive message to the driver chat.
-    Respects cooldown periods unless force=True.
-    Non-critical messages wait if the driver is actively typing.
+    Push a packet to the remote mechanic twin.
+    queue_type: 'emergency' or 'maintenance'
     """
-    now = datetime.now(timezone.utc)
-
-    if not force:
-        last = _last_sent.get(msg_type)
-        if last:
-            elapsed = (now - last).total_seconds()
-            if msg_type == "warning"  and elapsed < WARNING_COOLDOWN:
-                return
-            if msg_type == "info"     and elapsed < INFO_COOLDOWN:
-                return
-
-    # Critical alerts still interrupt — everything else waits a beat
-    if msg_type != "critical" and _user_is_typing():
-        print(f"[MESSENGER] Driver is typing — holding {msg_type} message")
+    if not is_mechanic_connected():
+        print(f"[MECHANIC CLIENT] Remote mechanic Ditto unreachable — storing locally")
+        _store_locally(queue_type, packet)
         return
 
-    _last_sent[msg_type] = now
-
-    msg = {
-        "role":      role,
-        "content":   content,
-        "timestamp": now.isoformat(),
-        "type":      msg_type,
-        "source":    "autonomous",
-    }
+    feature   = "emergency_queue"   if queue_type == "emergency"    else "maintenance_queue"
+    prop_key  = "active_emergencies" if queue_type == "emergency"   else "pending_services"
 
     try:
-        r = _get_redis()
-        r.lpush("driver:messages", json.dumps(msg))
-        r.ltrim("driver:messages", 0, 199)
-        print(f"[MESSENGER] 💬 Sent {msg_type} message to driver")
+        # Get current queue from remote mechanic twin
+        r = httpx.get(
+            f"{MECHANIC_URL}/api/2/things/{MECHANIC_THING_ID}"
+            f"/features/{feature}/properties",
+            auth=AUTH, timeout=TIMEOUT,
+        )
+        props = r.json() if r.status_code == 200 else {}
+        queue = props.get(prop_key, [])
+
+        # Add new packet (keep last MAX_QUEUE_SIZE)
+        queue.insert(0, packet)
+        queue = queue[:MAX_QUEUE_SIZE]
+
+        body = {
+            prop_key:       queue,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "from_vehicle": os.getenv("ASSET_ID", "VIN_1234567890"),
+        }
+
+        # Push back to remote mechanic Ditto.
+        # NOTE: must use content= with an explicit merge-patch+json
+        # Content-Type header — Ditto rejects the default
+        # application/json content type on PATCH with 415.
+        r = httpx.patch(
+            f"{MECHANIC_URL}/api/2/things/{MECHANIC_THING_ID}"
+            f"/features/{feature}/properties",
+            auth=AUTH, timeout=TIMEOUT,
+            headers=DITTO_MERGE_PATCH_HEADERS,
+            content=json.dumps(body),
+        )
+        print(f"[MECHANIC CLIENT] Pushed {queue_type} to remote mechanic — status: {r.status_code}")
+        if r.status_code >= 400:
+            print(f"[MECHANIC CLIENT] Response body: {r.text[:500]}")
+            # httpx does NOT raise on 4xx/5xx by default, so a bad status
+            # here would otherwise fall through silently and the alert
+            # would never be stored anywhere. Fall back to local storage
+            # so nothing gets dropped.
+            _store_locally(queue_type, packet)
+
     except Exception as e:
-        print(f"[MESSENGER] Failed to push message: {e}")
+        print(f"[MECHANIC CLIENT] Push failed: {e} — storing locally")
+        _store_locally(queue_type, packet)
 
 
-def push_critical(content: str):
-    """Always sends — no cooldown for critical alerts."""
-    push_message(content, msg_type="critical", force=True)
-
-
-def push_warning(content: str):
-    """Sends with 30-minute cooldown."""
-    push_message(content, msg_type="warning")
-
-
-def push_info(content: str):
-    """Sends with 1-hour cooldown."""
-    push_message(content, msg_type="info")
-
-
-def push_journey_prompt(fuel_status: str, weather: str = ""):
-    """Ask driver for destination when journey is detected."""
-    now = datetime.now(timezone.utc)
-    last = _last_sent.get("journey")
-    if last and (now - last).total_seconds() < 3600:
-        return
-    _last_sent["journey"] = now
-
-    msg = (
-        "It looks like you're about to head out. "
-        f"{fuel_status} "
-        "Where are you headed? I can check the weather on your route, "
-        "estimate if you have enough fuel, and flag any concerns before you leave."
-    )
-    if weather:
-        msg += f"\n\nCurrent conditions nearby: {weather}"
-
-    push_message(msg, msg_type="journey", force=True)
-
-
-def push_all_clear():
-    """Send a brief all-clear update if nothing has been sent in 2 hours."""
-    now  = datetime.now(timezone.utc)
-    last = max(
-        (t for t in _last_sent.values() if t is not None),
-        default=None
-    )
-    if last and (now - last).total_seconds() < 7200:
-        return
-    push_info(
-        "Everything looks good. All sensors are within normal limits "
-        "and no maintenance issues require immediate attention. "
-        "Have a safe drive."
-    )
-
-
-def get_recent_messages(limit: int = 50) -> list:
-    """Get recent messages for the driver chat UI."""
+def _store_locally(queue_type: str, packet: dict):
+    """Fallback — store packet in MongoDB if mechanic is unreachable."""
     try:
-        r    = _get_redis()
-        msgs = r.lrange("driver:messages", 0, limit - 1)
-        return [json.loads(m) for m in msgs]
-    except Exception:
+        from shared.mongo_io import log_event
+        log_event(
+            f"mechanic_offline_{queue_type}",
+            packet,
+            severity=packet.get("severity", "info"),
+        )
+        print(f"[MECHANIC CLIENT] Stored locally in MongoDB (mechanic offline)")
+    except Exception as e:
+        print(f"[MECHANIC CLIENT] Local fallback failed: {e}")
+
+
+def get_mechanic_status() -> dict:
+    """Get connection status and queue sizes from remote mechanic twin."""
+    connected = is_mechanic_connected()
+    if not connected:
+        return {
+            "connected":   False,
+            "mechanic_url": MECHANIC_URL,
+            "thing_id":    MECHANIC_THING_ID,
+            "message":     "Remote mechanic Ditto unreachable",
+        }
+    try:
+        r = httpx.get(
+            f"{MECHANIC_URL}/api/2/things/{MECHANIC_THING_ID}",
+            auth=AUTH, timeout=TIMEOUT,
+        )
+        thing = r.json()
+        features = thing.get("features", {})
+        eq = features.get("emergency_queue",  {}).get("properties", {})
+        mq = features.get("maintenance_queue", {}).get("properties", {})
+        return {
+            "connected":          True,
+            "mechanic_url":       MECHANIC_URL,
+            "thing_id":           MECHANIC_THING_ID,
+            "mechanic_name":      thing.get("attributes", {}).get("name", "Unknown"),
+            "workshop":           thing.get("attributes", {}).get("workshop", "Unknown"),
+            "emergency_count":    len(eq.get("active_emergencies", [])),
+            "maintenance_count":  len(mq.get("pending_services", [])),
+            "last_emergency":     eq.get("last_updated"),
+            "last_maintenance":   mq.get("last_updated"),
+        }
+    except Exception as e:
+        return {"connected": False, "error": str(e)}
+
+
+def get_emergency_queue() -> list:
+    """Get the emergency queue — from the remote mechanic twin if
+    reachable, otherwise from local MongoDB fallback storage."""
+    return _get_queue("emergency", "emergency_queue", "active_emergencies")
+
+
+def get_maintenance_queue() -> list:
+    """Get the maintenance queue — from the remote mechanic twin if
+    reachable, otherwise from local MongoDB fallback storage."""
+    return _get_queue("maintenance", "maintenance_queue", "pending_services")
+
+
+def _get_queue(queue_type: str, feature: str, prop_key: str) -> list:
+    if is_mechanic_connected():
+        try:
+            r = httpx.get(
+                f"{MECHANIC_URL}/api/2/things/{MECHANIC_THING_ID}"
+                f"/features/{feature}/properties",
+                auth=AUTH, timeout=TIMEOUT,
+            )
+            if r.status_code == 200:
+                return r.json().get(prop_key, [])
+        except Exception as e:
+            print(f"[MECHANIC CLIENT] Remote queue fetch failed: {e} — falling back to local")
+
+    # Fallback: read whatever was stored locally while the mechanic was offline
+    try:
+        from shared.mongo_io import get_recent_events
+        events = get_recent_events(limit=MAX_QUEUE_SIZE, event_type=f"mechanic_offline_{queue_type}")
+        return [e["details"] for e in events]
+    except Exception as e:
+        print(f"[MECHANIC CLIENT] Local queue fetch failed: {e}")
         return []
-
-
-def clear_messages():
-    """Clear the message queue."""
-    try:
-        _get_redis().delete("driver:messages")
-    except Exception:
-        pass

@@ -297,7 +297,7 @@
     white-space:pre-wrap;
   }
 
-  .alert-actions { display:flex; gap:6px; }
+  .alert-actions { display:flex; gap:6px; flex-wrap:wrap; }
 
   .btn {
     font-family:'IBM Plex Mono', monospace;
@@ -310,6 +310,8 @@
   .btn-ack:hover { background: rgba(89,201,165,0.14); }
   .btn-detail{ color: var(--amber); border-color: rgba(255,176,32,0.3); background: rgba(255,176,32,0.05); }
   .btn-detail:hover { background: rgba(255,176,32,0.13); }
+  .btn-diag  { color: #7fb8ff; border-color: rgba(127,184,255,0.3); background: rgba(127,184,255,0.05); }
+  .btn-diag:hover { background: rgba(127,184,255,0.14); }
   .btn-acked { color: var(--paper3); border-color: var(--line2); cursor:default; }
 
   .empty-state {
@@ -536,7 +538,9 @@
         <div class="chat-tag">◈ ACDT SYSTEM</div>
         <div class="chat-bubble">
           ATDT online. Describe a symptom to get a diagnosis, or start
-          a repair procedure once a failure mode is confirmed.
+          a repair procedure once a failure mode is confirmed. You can
+          also hit "DIAGNOSE THIS" on any alert card to send its report
+          straight in.
         </div>
       </div>
     </div>
@@ -594,6 +598,16 @@ const acknowledged = new Set();
 let   lastEmerCount = 0;
 let   lastMaintCount = 0;
 
+// ── Alert data store ────────────────────────────────────────────
+// Report text can contain newlines, quotes, and backticks. Embedding
+// it directly inside an inline onclick="...('${report}')" attribute
+// is fragile — a literal newline or an unescaped quote breaks the JS
+// parse of that attribute silently, which is why "FULL REPORT" (and
+// any button built the same way) could fail with no visible error.
+// Instead we store each alert's full data in this map, keyed by a
+// plain alphanumeric id, and buttons only ever reference that id.
+const alertStore = {};
+
 function fmtTime(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -604,6 +618,12 @@ function fmtDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString([], { day:'2-digit', month:'short' }) + ' ' +
          d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 function setStat(id, val, min, max, warn, crit, dec = 0) {
@@ -704,26 +724,39 @@ function buildAlertCard(item, idx, queueType) {
   const report   = item.report || 'No details available.';
   const time     = fmtDate(item.timestamp);
 
+  // Store the raw data — no escaping needed here, this is a JS object,
+  // not an HTML attribute.
+  alertStore[id] = { type, report, time, sev };
+
   const card = document.createElement('div');
   card.className = `alert-card ${isAcked ? 'acknowledged' : sev}`;
   card.id = `card-${id}`;
+
+  const safeReportPreview = escapeHtml(report.slice(0, 200)) + (report.length > 200 ? '...' : '');
 
   card.innerHTML = `
     <div class="alert-top">
       <span class="alert-sev sev-${sev}">${sev.toUpperCase()}</span>
       <span class="alert-time">${time}</span>
     </div>
-    <div class="alert-type">${type}</div>
-    <div class="alert-report">${report.slice(0, 200)}${report.length > 200 ? '...' : ''}</div>
+    <div class="alert-type">${escapeHtml(type)}</div>
+    <div class="alert-report">${safeReportPreview}</div>
     <div class="alert-actions">
       ${isAcked
         ? `<button class="btn btn-acked">✓ ACKNOWLEDGED</button>`
-        : `<button class="btn btn-ack" onclick="acknowledge('${id}','${queueType}','${type}')">✓ ACKNOWLEDGE</button>`
+        : `<button class="btn btn-ack" data-id="${id}" data-queue="${queueType}">✓ ACKNOWLEDGE</button>`
       }
-      <button class="btn btn-detail" onclick="showDetail('${type}','${report.replace(/'/g,"\\'")}','${time}','${sev}')">
-        ◈ FULL REPORT
-      </button>
+      <button class="btn btn-detail" data-id="${id}" data-action="detail">◈ FULL REPORT</button>
+      <button class="btn btn-diag" data-id="${id}" data-action="diagnose">▶ DIAGNOSE THIS</button>
     </div>`;
+
+  // Event delegation via data-id avoids ever putting report text inside
+  // an HTML attribute — this is what fixes the FULL REPORT button.
+  card.querySelector('.btn-detail').addEventListener('click', () => showDetail(id));
+  card.querySelector('.btn-diag').addEventListener('click', () => diagnoseThis(id));
+  const ackBtn = card.querySelector('.btn-ack');
+  if (ackBtn) ackBtn.addEventListener('click', () => acknowledge(id, queueType, type));
+
   return card;
 }
 
@@ -803,10 +836,10 @@ async function fetchHistory() {
         : String(e.details || '').slice(0, 100);
       item.innerHTML = `
         <div class="hist-top">
-          <span class="hist-type">[${(e.severity||'INFO').toUpperCase()}] ${e.event_type || 'event'}</span>
+          <span class="hist-type">[${escapeHtml((e.severity||'INFO').toUpperCase())}] ${escapeHtml(e.event_type || 'event')}</span>
           <span class="hist-time">${fmtDate(e.timestamp)}</span>
         </div>
-        <div class="hist-detail">${detail}</div>`;
+        <div class="hist-detail">${escapeHtml(detail)}</div>`;
       list.appendChild(item);
     });
   } catch(e) {}
@@ -836,7 +869,7 @@ async function acknowledge(id, queueType, alertType) {
   } catch(e) {}
 
   addAcknowledgedEntry(alertType);
-  addSystemMessage(`Alert acknowledged: ${alertType}`);
+  addSystemMessage(`Alert acknowledged: ${escapeHtml(alertType)}`);
 }
 
 function addAcknowledgedEntry(type) {
@@ -848,7 +881,7 @@ function addAcknowledgedEntry(type) {
   item.className = 'hist-item';
   item.innerHTML = `
     <div class="hist-top">
-      <span class="hist-type" style="color:var(--ok)">✓ ${type}</span>
+      <span class="hist-type" style="color:var(--ok)">✓ ${escapeHtml(type)}</span>
       <span class="hist-time">${fmtTime()}</span>
     </div>
     <div class="hist-detail" style="color:var(--paper3)">Acknowledged by Master Technician</div>`;
@@ -951,6 +984,35 @@ async function sendAtdtGuidanceDirect(query) {
   }
 }
 
+// Send an alert card's full report straight into the diagnose chat,
+// so the mechanic doesn't have to retype what's already on screen.
+function diagnoseThis(id) {
+  const alert = alertStore[id];
+  if (!alert) return;
+  setAtdtMode('diagnose');
+  addChatMessage('mechanic', `[Alert report] ${alert.report}`);
+  sendAtdtDiagnoseDirect(alert.report);
+}
+
+async function sendAtdtDiagnoseDirect(query) {
+  addSystemMessage('Thinking…', true);
+  try {
+    const res  = await fetch('/api/atdt/diagnose', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    const data = await res.json();
+    removeThinkingMessage();
+    const responseText = data.response || 'No response.';
+    const matchedFailure = KNOWN_FAILURE_MODES.find(f => responseText.includes(f));
+    addChatMessage('system', responseText, matchedFailure);
+  } catch (e) {
+    removeThinkingMessage();
+    addSystemMessage('ATDT connection error — check the service.');
+  }
+}
+
 function addChatMessage(role, text, matchedFailure) {
   const msgs = document.getElementById('chatMessages');
   const div  = document.createElement('div');
@@ -959,11 +1021,13 @@ function addChatMessage(role, text, matchedFailure) {
   const bodyHtml = marked.parse(text || '');
   let extra = '';
   if (matchedFailure) {
-    extra = `<button class="btn btn-ack" style="margin-top:8px" onclick="startRepair('${matchedFailure}')">▶ START REPAIR</button>`;
+    extra = `<button class="btn btn-ack start-repair-btn" style="margin-top:8px" data-failure="${escapeHtml(matchedFailure)}">▶ START REPAIR</button>`;
   }
   div.innerHTML = `
     <div class="chat-tag">◈ ${tag} · ${fmtTime()}</div>
     <div class="chat-bubble">${bodyHtml}${extra}</div>`;
+  const repairBtn = div.querySelector('.start-repair-btn');
+  if (repairBtn) repairBtn.addEventListener('click', () => startRepair(matchedFailure));
   msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
 }
@@ -985,9 +1049,11 @@ function removeThinkingMessage() {
   if (el) el.remove();
 }
 
-function showDetail(type, report, time, sev) {
-  document.getElementById('modalTitle').textContent = `${type} · ${time}`;
-  document.getElementById('modalBody').textContent  = report;
+function showDetail(id) {
+  const alert = alertStore[id];
+  if (!alert) return;
+  document.getElementById('modalTitle').textContent = `${alert.type} · ${alert.time}`;
+  document.getElementById('modalBody').textContent  = alert.report;
   document.getElementById('modalOverlay').classList.add('open');
 }
 
