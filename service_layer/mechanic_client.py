@@ -7,12 +7,14 @@ packets to their digital twin.
 
 The mechanic runs their OWN ACDT instance. You connect
 to their Ditto endpoint using their credentials.
+
 Configure via .env:
   MECHANIC_DITTO_URL      = https://mechanic.acdt.local:8080
   MECHANIC_DITTO_USER     = ditto
   MECHANIC_DITTO_PASSWORD = ditto
   MECHANIC_THING_ID       = org.example:MECHANIC_001
 """
+import json
 import os
 import httpx
 from datetime import datetime, timezone
@@ -27,6 +29,12 @@ MECHANIC_THING_ID = os.getenv("MECHANIC_THING_ID",       "org.example:MECHANIC_0
 
 AUTH    = (MECHANIC_USER, MECHANIC_PASSWORD)
 TIMEOUT = httpx.Timeout(15.0)
+
+# Ditto's HTTP API requires this exact content type for PATCH requests to
+# a properties resource (RFC 7396 JSON Merge Patch). The generic
+# "application/json" that httpx's json= shortcut sends is rejected by
+# Ditto with 415 Unsupported Media Type.
+DITTO_MERGE_PATCH_HEADERS = {"Content-Type": "application/merge-patch+json"}
 
 
 def is_mechanic_connected() -> bool:
@@ -68,18 +76,26 @@ def push_to_mechanic(queue_type: str, packet: dict):
         queue.insert(0, packet)
         queue = queue[:20]
 
-        # Push back to remote mechanic Ditto
+        body = {
+            prop_key:       queue,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "from_vehicle": os.getenv("ASSET_ID", "VIN_1234567890"),
+        }
+
+        # Push back to remote mechanic Ditto.
+        # NOTE: must use content= with an explicit merge-patch+json
+        # Content-Type header — Ditto rejects the default
+        # application/json content type on PATCH with 415.
         r = httpx.patch(
             f"{MECHANIC_URL}/api/2/things/{MECHANIC_THING_ID}"
             f"/features/{feature}/properties",
             auth=AUTH, timeout=TIMEOUT,
-            json={
-                prop_key:     queue,
-                "last_updated": datetime.now(timezone.utc).isoformat(),
-                "from_vehicle": os.getenv("ASSET_ID", "VIN_1234567890"),
-            },
+            headers=DITTO_MERGE_PATCH_HEADERS,
+            content=json.dumps(body),
         )
         print(f"[MECHANIC CLIENT] Pushed {queue_type} to remote mechanic — status: {r.status_code}")
+        if r.status_code >= 400:
+            print(f"[MECHANIC CLIENT] Response body: {r.text[:500]}")
 
     except Exception as e:
         print(f"[MECHANIC CLIENT] Push failed: {e} — storing locally")
@@ -132,6 +148,7 @@ def get_mechanic_status() -> dict:
         }
     except Exception as e:
         return {"connected": False, "error": str(e)}
+
 
 def get_emergency_queue() -> list:
     """Get the emergency queue — from the remote mechanic twin if
