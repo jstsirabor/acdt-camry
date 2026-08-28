@@ -96,6 +96,11 @@ def push_to_mechanic(queue_type: str, packet: dict):
         print(f"[MECHANIC CLIENT] Pushed {queue_type} to remote mechanic — status: {r.status_code}")
         if r.status_code >= 400:
             print(f"[MECHANIC CLIENT] Response body: {r.text[:500]}")
+            # httpx does NOT raise on 4xx/5xx by default, so a bad status
+            # here would otherwise fall through silently and the alert
+            # would never be stored anywhere. Fall back to local storage
+            # so nothing gets dropped.
+            _store_locally(queue_type, packet)
 
     except Exception as e:
         print(f"[MECHANIC CLIENT] Push failed: {e} — storing locally")
