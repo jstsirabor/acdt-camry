@@ -27,7 +27,20 @@ _data_source = None   # 'adapter' | 'mqtt' | 'simulator' | 'none'
 _obd_conn    = None
 _active_override = None  # last override value applied, so we only re-init on change
 
+# Whether the last read from a "live" source (adapter/mqtt) actually
+# contained real sensor values, as opposed to a connection/message being
+# present but carrying only nulls (e.g. ELM327 handshake failing, or the
+# ESP32 publishing a cycle where every PID query failed). get_data_source()
+# uses this to avoid reporting "LIVE" when nothing meaningful is flowing.
+_last_read_had_data = True
+
 _OVERRIDE_REDIS_KEY = "obd:mode_override"
+
+# Fields that don't count as "real sensor data" on their own — battery
+# voltage is read directly off the ELM327's voltage-sense pin and can
+# succeed even when the ECU never responds to any OBD PID query, and
+# asset_id/timestamp are just metadata.
+_NON_SENSOR_FIELDS = {"asset_id", "battery_voltage", "timestamp"}
 
 
 def _get_live_override() -> str | None:
@@ -72,7 +85,11 @@ def _initialise_for_mode(mode: str) -> str:
     """Initialise the data source for a specific mode string
     ('simulator' | 'adapter' | 'mqtt' | 'auto'). Shared by initialise()
     and the live-override re-init path."""
-    global _data_source
+    global _data_source, _last_read_had_data
+
+    # Reset the "had data" flag on every (re)init so a stale value from a
+    # previous mode doesn't linger and misreport the new mode's status.
+    _last_read_had_data = True
 
     if mode == "simulator":
         _data_source = "simulator"
@@ -134,14 +151,36 @@ def initialise() -> str:
 
 
 def get_data_source() -> str:
+    """Report the data source the UI should reflect.
+
+    For 'adapter'/'mqtt' this is downgraded to 'none' when the last
+    actual read didn't contain any real sensor values — e.g. the ELM327
+    handshake with the ECU is failing, or the ESP32 is publishing
+    cycles where every PID query came back null. A connection or
+    message existing isn't the same as real vehicle data existing, and
+    the chip shouldn't say "LIVE" when it isn't. _data_source itself is
+    left alone so reconnection/retry logic for the underlying mode
+    keeps working."""
+    if _data_source in ("adapter", "mqtt") and not _last_read_had_data:
+        return "none"
     return _data_source or "simulator"
+
+
+def _has_real_sensor_data(data: dict) -> bool:
+    """True if at least one field beyond battery_voltage/asset_id/timestamp
+    is non-null."""
+    return any(
+        v is not None
+        for k, v in data.items()
+        if k not in _NON_SENSOR_FIELDS
+    )
 
 
 def read_sensors() -> dict:
     """Read sensors from whichever source is active. Re-checks the live
     override each call (cheap Redis GET) so a change takes effect on the
     next read without restarting the service."""
-    global _active_override
+    global _active_override, _last_read_had_data
     override = _get_live_override()
     if override != _active_override:
         print(f"[OBD READER] Live override changed ({_active_override!r} → {override!r}) — reinitialising")
@@ -150,9 +189,13 @@ def read_sensors() -> dict:
         _initialise_for_mode(mode)
 
     if _data_source == "adapter":
-        return _read_from_adapter()
+        data = _read_from_adapter()
+        _last_read_had_data = _has_real_sensor_data(data)
+        return data
     if _data_source == "mqtt":
-        return _read_from_mqtt()
+        data = _read_from_mqtt()
+        _last_read_had_data = _has_real_sensor_data(data)
+        return data
     if _data_source == "none":
         return _no_data_reading()
     return _read_from_simulator()
@@ -211,7 +254,6 @@ def _read_from_adapter() -> dict:
 
 def _read_from_mqtt() -> dict:
     """Read the latest telemetry published by the ESP32 over the cloud broker."""
-    global _data_source
     from physical.mqtt_reader import read_latest, is_receiving_data
 
     if not is_receiving_data():
@@ -222,7 +264,19 @@ def _read_from_mqtt() -> dict:
         # since the ESP32 publishes every ~5s and may just be mid-cycle.
         return _no_data_reading()
 
-    return read_latest()
+    data = read_latest()
+
+    # A message arriving isn't the same as real vehicle data arriving.
+    # The ESP32 publishes every cycle even when the ELM327 couldn't get a
+    # single PID response from the car — in that case everything except
+    # battery_voltage (read directly off the adapter's voltage-sense pin,
+    # not through the OBD protocol handshake) comes through as null.
+    # Report that as "no data" rather than "LIVE" so the mechanic isn't
+    # misled into thinking the car is actually responding.
+    if not _has_real_sensor_data(data):
+        return _no_data_reading()
+
+    return data
 
 
 def _read_from_simulator() -> dict:
