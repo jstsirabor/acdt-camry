@@ -17,6 +17,8 @@ OLLAMA_API_KEY   = os.getenv("OLLAMA_API_KEY",   "")
 PREDICTIVE_MODEL = os.getenv("PREDICTIVE_MODEL", "gpt-oss:120b")
 SAFETY_MODEL     = os.getenv("SAFETY_MODEL",     "gpt-oss:120b")
 PREVENTIVE_MODEL = os.getenv("PREVENTIVE_MODEL", "gpt-oss:120b")
+DIAGNOSTIC_MODEL = os.getenv("DIAGNOSTIC_MODEL", "gpt-oss:120b")
+GUIDANCE_MODEL = os.getenv("GUIDANCE_MODEL", "gpt-oss:120b") 
 
 # ── OBD-II sensors ─────────────────────────────────────────────────
 SENSOR_FIELDS = [

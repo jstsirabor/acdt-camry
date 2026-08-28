@@ -193,6 +193,28 @@ async def chat_stream(req: ChatRequest):
         },
     )
 
+# ── ATDT — Diagnostic & Guidance ───────────────────────────────────
+class DiagnoseRequest(BaseModel):
+    query: str
+
+
+@app.post("/api/atdt/diagnose")
+async def atdt_diagnose(req: DiagnoseRequest):
+    from intelligent.diagnostic_agent import run_diagnostic_check
+    result = run_diagnostic_check(req.query)
+    return JSONResponse({"response": result})
+
+
+class GuidanceRequest(BaseModel):
+    query: str
+    session_id: str = "default"
+
+
+@app.post("/api/atdt/guidance")
+async def atdt_guidance(req: GuidanceRequest):
+    from intelligent.guidance_agent import run_guidance_check
+    result = run_guidance_check(req.query)
+    return JSONResponse({"response": result})
 
 # ── Mechanic API endpoints ─────────────────────────────────────────
 @app.get("/api/mechanic/status")
@@ -262,6 +284,20 @@ async def mechanic_acknowledge(body: dict):
     )
     return JSONResponse({"status": "acknowledged"})
 
+@app.post("/api/typing")
+async def set_typing():
+    """Called while the driver has text in the input box. Sets a short-
+    lived Redis flag so the messenger holds off on non-critical proactive
+    messages. The flag auto-expires after 5 seconds if no new signal
+    arrives, so nothing needs to explicitly clear it."""
+    import redis
+    from shared.config import REDIS_HOST, REDIS_PORT
+    try:
+        r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+        r.set("driver:typing", "1", ex=5)
+    except Exception:
+        pass
+    return JSONResponse({"status": "ok"})
 
 @app.get("/api/mechanic/push-test")
 async def mechanic_push_test():

@@ -3,516 +3,406 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ACDT — Mechanic Interface</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<title>ACDT — Service Console</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 <style>
   :root {
-    --bg:      #010409;
-    --bg2:     #050b12;
-    --panel:   #061018;
-    --border:  #0a2040;
-    --border2: #0d3060;
-    --gold:    #ffa500;
-    --gold2:   #cc7700;
-    --gold3:   #ffcc66;
-    --cyan:    #00d4ff;
-    --green:   #00ff88;
-    --amber:   #ffaa00;
-    --red:     #ff2244;
-    --text:    #c8e8ff;
-    --text2:   #5580aa;
-    --text3:   #2a4060;
-    --glow-g:  0 0 20px rgba(255,165,0,0.4);
-    --glow-r:  0 0 25px rgba(255,34,68,0.5);
-    --glow-c:  0 0 20px rgba(0,212,255,0.3);
+    --bg:       #0c0e10;
+    --bg2:      #101215;
+    --panel:    #15181b;
+    --line:     #262b30;
+    --line2:    #33393f;
+    --paper:    #eae6dc;
+    --paper2:   #a7a89f;
+    --paper3:   #5c6167;
+    --amber:    #ffb020;
+    --amber-dim:#7a5316;
+    --caution:  #ff8a3d;
+    --critical: #ff4d4f;
+    --ok:       #59c9a5;
+    --glow-amb: 0 0 18px rgba(255,176,32,0.35);
+    --glow-crit:0 0 20px rgba(255,77,79,0.45);
   }
 
   * { margin:0; padding:0; box-sizing:border-box; }
 
   body {
     background: var(--bg);
-    color: var(--text);
-    font-family: 'Rajdhani', sans-serif;
+    color: var(--paper);
+    font-family: 'IBM Plex Sans', sans-serif;
     min-height: 100vh;
     overflow-x: hidden;
   }
 
-  /* Grid background */
   body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image:
-      linear-gradient(rgba(255,165,0,0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,165,0,0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none; z-index: 0;
-    animation: gridMove 20s linear infinite;
-  }
-  @keyframes gridMove {
-    0%   { background-position: 0 0; }
-    100% { background-position: 40px 40px; }
+    content:'';
+    position: fixed; inset:0;
+    background-image: repeating-linear-gradient(115deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    pointer-events:none; z-index:0;
   }
 
-  body::after {
-    content: '';
-    position: fixed; inset: 0;
-    background: repeating-linear-gradient(
-      0deg, transparent, transparent 3px,
-      rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px
-    );
-    pointer-events: none; z-index: 1001;
-  }
-
-  /* ── Header ─────────────────────────────────────────────── */
   header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 24px;
-    background: linear-gradient(180deg, rgba(255,165,0,0.08) 0%, transparent 100%);
-    border-bottom: 1px solid var(--border2);
-    position: relative; z-index: 10; flex-shrink: 0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 14px 26px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--line);
+    position: relative; z-index: 10; flex-shrink:0;
   }
-  header::after {
-    content: '';
-    position: absolute; bottom: -2px; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--gold), var(--gold3), var(--gold), transparent);
-    animation: scan 3s ease-in-out infinite;
+  header::before {
+    content:''; position:absolute; inset:6px;
+    border: 1px dashed rgba(255,176,32,0.12);
+    pointer-events:none;
   }
-  @keyframes scan { 0%,100%{opacity:0.5} 50%{opacity:1} }
 
-  .logo-block { display: flex; align-items: center; gap: 14px; }
+  .logo-block { display:flex; align-items:center; gap:14px; }
   .wrench-icon {
-    width: 44px; height: 44px;
-    background: linear-gradient(135deg, var(--gold2), var(--gold));
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 22px;
-    box-shadow: var(--glow-g);
-    animation: wrenchPulse 3s ease-in-out infinite;
-  }
-  @keyframes wrenchPulse {
-    0%,100% { box-shadow: var(--glow-g); }
-    50%      { box-shadow: 0 0 35px rgba(255,165,0,0.7); }
+    width:40px; height:40px;
+    background: var(--panel);
+    border: 1px solid var(--amber);
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; color: var(--amber);
+    box-shadow: var(--glow-amb);
+    position:relative;
   }
 
-  .logo-text { display: flex; flex-direction: column; }
+  .logo-text { display:flex; flex-direction:column; gap:2px; }
   .logo-main {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 18px; font-weight: 900;
-    color: var(--gold); letter-spacing: 5px;
-    text-shadow: var(--glow-g);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:17px; font-weight:700;
+    color: var(--paper); letter-spacing:4px;
   }
   .logo-sub {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px; color: var(--text2); letter-spacing: 3px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px; color: var(--amber); letter-spacing:2px;
   }
 
   .header-center {
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    padding: 6px 22px;
+    border-left: 1px solid var(--line); border-right: 1px solid var(--line);
   }
   .mechanic-name {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 13px; font-weight: 600;
-    color: var(--text); letter-spacing: 3px;
+    font-family:'IBM Plex Sans Condensed', sans-serif;
+    font-size:13px; font-weight:700;
+    color: var(--paper); letter-spacing:2px; text-transform:uppercase;
   }
   .mechanic-id {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px; color: var(--text3); letter-spacing: 2px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px; color: var(--paper3); letter-spacing:1px;
   }
 
-  .header-right { display: flex; align-items: center; gap: 12px; }
+  .header-right { display:flex; align-items:center; gap:10px; }
 
   .conn-status {
-    display: flex; align-items: center; gap: 8px;
+    display:flex; align-items:center; gap:8px;
     padding: 6px 14px;
-    border: 1px solid var(--border2);
-    background: rgba(255,165,0,0.05);
-    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    border: 1px solid var(--line2);
+    background: var(--panel);
   }
-  .conn-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    animation: pulse 2s infinite;
-  }
-  .conn-dot.online  { background: var(--green); box-shadow: var(--glow-c); }
-  .conn-dot.offline { background: var(--red); }
-  .conn-text {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 10px; font-weight: 600; letter-spacing: 2px;
-  }
-  .conn-text.online  { color: var(--green); }
-  .conn-text.offline { color: var(--red); }
-  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+  .conn-dot { width:7px; height:7px; border-radius:50%; animation: pulse 2s infinite; }
+  .conn-dot.online  { background: var(--ok); box-shadow: 0 0 10px rgba(89,201,165,0.6); }
+  .conn-dot.offline { background: var(--critical); box-shadow: var(--glow-crit); }
+  .conn-text { font-family:'IBM Plex Mono', monospace; font-size:10px; font-weight:600; letter-spacing:1.5px; }
+  .conn-text.online  { color: var(--ok); }
+  .conn-text.offline { color: var(--critical); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
 
   .nav-link {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px; color: var(--text2);
-    padding: 5px 12px;
-    border: 1px solid var(--border);
-    text-decoration: none; letter-spacing: 1px;
-    clip-path: polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px; color: var(--paper2);
+    padding: 6px 12px;
+    border: 1px solid var(--line2);
+    text-decoration:none; letter-spacing:1px;
     transition: all 0.2s;
   }
-  .nav-link:hover { color: var(--gold); border-color: var(--gold2); background: rgba(255,165,0,0.05); }
+  .nav-link:hover { color: var(--amber); border-color: var(--amber-dim); }
 
-  /* ── Main layout ─────────────────────────────────────────── */
   .main {
-    display: grid;
+    display:grid;
     grid-template-columns: 1fr 1fr 340px;
     grid-template-rows: auto 1fr;
-    gap: 12px;
-    padding: 12px;
-    min-height: calc(100vh - 68px);
-    position: relative; z-index: 5;
+    gap: 10px; padding: 10px;
+    min-height: calc(100vh - 66px);
+    position:relative; z-index:5;
   }
 
-  /* ── Vehicle status bar ──────────────────────────────────── */
   .vehicle-bar {
-    grid-column: 1 / 4;
-    display: grid;
+    grid-column: 1/4;
+    display:grid;
     grid-template-columns: repeat(8, 1fr);
-    gap: 8px;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
   }
 
   .vstat {
     background: var(--panel);
-    border: 1px solid var(--border);
-    padding: 10px 14px;
-    display: flex; flex-direction: column; gap: 2px;
-    position: relative;
-    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
-  }
-  .vstat::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, var(--gold2), transparent);
-    opacity: 0.5;
+    padding: 12px 14px 10px;
+    display:flex; flex-direction:column; gap:4px;
+    position:relative;
   }
   .vstat-val {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 16px; font-weight: 700;
-    color: var(--gold); line-height: 1;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:19px; font-weight:600;
+    color: var(--amber); line-height:1;
+    font-variant-numeric: tabular-nums;
   }
-  .vstat-val.warn { color: var(--amber); }
-  .vstat-val.crit { color: var(--red); text-shadow: var(--glow-r); }
+  .vstat-val.warn { color: var(--caution); }
+  .vstat-val.crit { color: var(--critical); text-shadow: var(--glow-crit); }
   .vstat-lbl {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 8px; color: var(--text3);
-    text-transform: uppercase; letter-spacing: 1px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:8px; color: var(--paper3);
+    text-transform:uppercase; letter-spacing:1px;
   }
-  .vstat-bar { width: 100%; height: 2px; background: var(--border); border-radius: 1px; margin-top: 3px; overflow: hidden; }
-  .vstat-fill { height: 100%; background: linear-gradient(90deg, var(--gold2), var(--gold)); transition: width 0.5s; }
+  .vstat-bar {
+    width:100%; height:4px; margin-top:4px;
+    background:
+      repeating-linear-gradient(90deg, var(--line2) 0, var(--line2) 1px, transparent 1px, transparent 9%);
+    position:relative; overflow:visible;
+  }
+  .vstat-fill {
+    height:100%; background: linear-gradient(90deg, var(--amber-dim), var(--amber));
+    transition:width 0.5s; position:relative;
+  }
+  .vstat-fill::after {
+    content:''; position:absolute; right:-2px; top:50%; transform:translateY(-50%);
+    width:5px; height:5px; border-radius:50%;
+    background: var(--amber); box-shadow: 0 0 8px 2px rgba(255,176,32,0.7);
+  }
+  .vstat-val.warn ~ .vstat-bar .vstat-fill { background: linear-gradient(90deg, #7a4a1a, var(--caution)); }
+  .vstat-val.warn ~ .vstat-bar .vstat-fill::after { background: var(--caution); box-shadow:0 0 8px 2px rgba(255,138,61,0.7); }
+  .vstat-val.crit ~ .vstat-bar .vstat-fill { background: linear-gradient(90deg, #7a1a1c, var(--critical)); }
+  .vstat-val.crit ~ .vstat-bar .vstat-fill::after { background: var(--critical); box-shadow:0 0 10px 2px rgba(255,77,79,0.8); }
 
-  /* ── Panel base ──────────────────────────────────────────── */
   .panel {
     background: var(--panel);
-    border: 1px solid var(--border);
-    position: relative; overflow: hidden;
-    display: flex; flex-direction: column;
-  }
-  .panel::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--gold2), transparent);
-    opacity: 0.4;
+    border: 1px solid var(--line);
+    position:relative; overflow:hidden;
+    display:flex; flex-direction:column;
   }
 
   .panel-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--line);
+    flex-shrink:0;
   }
   .panel-title {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 11px; font-weight: 700;
-    letter-spacing: 3px; text-transform: uppercase;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; font-weight:600;
+    letter-spacing:2px; text-transform:uppercase;
+    display:flex; align-items:center; gap:8px;
   }
-  .panel-title.emergency  { color: var(--red); text-shadow: var(--glow-r); }
-  .panel-title.maintenance{ color: var(--amber); }
-  .panel-title.history    { color: var(--cyan); }
-  .panel-title.chat       { color: var(--gold); }
+  .panel-title::before {
+    font-size:9px; color: var(--paper3); font-weight:500;
+    border: 1px solid var(--line2); padding: 1px 5px;
+  }
+  .panel-title.emergency  { color: var(--critical); }
+  .panel-title.emergency::before  { content:'SVC/01'; }
+  .panel-title.maintenance{ color: var(--caution); }
+  .panel-title.maintenance::before{ content:'SVC/02'; }
+  .panel-title.chat       { color: var(--amber); }
+  .panel-title.chat::before       { content:'SVC/03'; }
+  .panel-title.history    { color: var(--paper2); }
+  .panel-title.history::before    { content:'SVC/04'; }
+  .panel-title.ack::before { content:'SVC/05'; }
 
   .badge {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 10px; font-weight: 700;
-    padding: 3px 10px; border-radius: 2px;
-    min-width: 28px; text-align: center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px; font-weight:700;
+    padding: 3px 9px;
+    min-width:26px; text-align:center;
+    border: 1px solid;
   }
-  .badge.red   { background: rgba(255,34,68,0.2);  color: var(--red);   border: 1px solid rgba(255,34,68,0.4); }
-  .badge.amber { background: rgba(255,170,0,0.15); color: var(--amber); border: 1px solid rgba(255,170,0,0.3); }
-  .badge.cyan  { background: rgba(0,212,255,0.1);  color: var(--cyan);  border: 1px solid rgba(0,212,255,0.2); }
+  .badge.red   { background: rgba(255,77,79,0.12);  color: var(--critical); border-color: rgba(255,77,79,0.4); }
+  .badge.amber { background: rgba(255,138,61,0.1);  color: var(--caution); border-color: rgba(255,138,61,0.35); }
+  .badge.cyan  { background: rgba(255,176,32,0.08); color: var(--amber);  border-color: rgba(255,176,32,0.3); }
 
-  /* ── Alert cards ─────────────────────────────────────────── */
   .alert-list {
-    flex: 1; overflow-y: auto; padding: 10px;
-    display: flex; flex-direction: column; gap: 8px;
-    scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+    flex:1; overflow-y:auto; padding:10px;
+    display:flex; flex-direction:column; gap:8px;
+    scrollbar-width: thin; scrollbar-color: var(--line2) transparent;
   }
 
   .alert-card {
-    border-radius: 2px; padding: 12px 14px;
-    position: relative; animation: cardIn 0.3s ease;
+    padding: 12px 14px;
+    position:relative; animation: cardIn 0.3s ease;
+    border-left: 3px solid;
   }
-  @keyframes cardIn {
-    from { opacity:0; transform: translateX(-8px); }
-    to   { opacity:1; transform: translateX(0); }
-  }
+  @keyframes cardIn { from{opacity:0; transform:translateX(-6px)} to{opacity:1; transform:translateX(0)} }
 
-  .alert-card.critical {
-    background: rgba(255,34,68,0.08);
-    border: 1px solid rgba(255,34,68,0.3);
-    border-left: 3px solid var(--red);
-  }
-  .alert-card.warning {
-    background: rgba(255,170,0,0.06);
-    border: 1px solid rgba(255,170,0,0.25);
-    border-left: 3px solid var(--amber);
-  }
-  .alert-card.info {
-    background: rgba(0,212,255,0.04);
-    border: 1px solid rgba(0,212,255,0.15);
-    border-left: 3px solid var(--cyan);
-  }
-  .alert-card.acknowledged {
-    opacity: 0.45;
-    border-left-color: var(--text3);
-    background: rgba(255,255,255,0.02);
-  }
+  .alert-card.critical { background: rgba(255,77,79,0.06); border-color: var(--critical); }
+  .alert-card.warning  { background: rgba(255,138,61,0.05); border-color: var(--caution); }
+  .alert-card.info     { background: rgba(255,176,32,0.03); border-color: var(--amber-dim); }
+  .alert-card.acknowledged { opacity:0.4; border-color: var(--line2); background: rgba(255,255,255,0.015); }
 
-  .alert-top {
-    display: flex; align-items: center;
-    justify-content: space-between; margin-bottom: 6px;
-  }
+  .alert-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
   .alert-sev {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 9px; font-weight: 700; letter-spacing: 2px;
-    padding: 2px 8px; border-radius: 2px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px; font-weight:700; letter-spacing:1.5px;
+    padding: 2px 7px;
   }
-  .sev-critical { background: rgba(255,34,68,0.2);  color: var(--red); }
-  .sev-warning  { background: rgba(255,170,0,0.15); color: var(--amber); }
-  .sev-info     { background: rgba(0,212,255,0.1);  color: var(--cyan); }
+  .sev-critical { background: rgba(255,77,79,0.15);  color: var(--critical); }
+  .sev-warning  { background: rgba(255,138,61,0.12); color: var(--caution); }
+  .sev-info     { background: rgba(255,176,32,0.08); color: var(--amber); }
 
-  .alert-time {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px; color: var(--text3);
-  }
+  .alert-time { font-family:'IBM Plex Mono', monospace; font-size:9px; color: var(--paper3); }
 
   .alert-type {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 13px; font-weight: 600;
-    color: var(--text); margin-bottom: 5px;
-    text-transform: uppercase; letter-spacing: 1px;
+    font-family:'IBM Plex Sans Condensed', sans-serif;
+    font-size:13px; font-weight:700;
+    color: var(--paper); margin-bottom:5px;
+    text-transform:uppercase; letter-spacing:0.5px;
   }
 
   .alert-report {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px; color: var(--text2);
-    line-height: 1.6; max-height: 80px;
-    overflow-y: auto; margin-bottom: 8px;
-    white-space: pre-wrap;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px; color: var(--paper2);
+    line-height:1.6; max-height:80px;
+    overflow-y:auto; margin-bottom:8px;
+    white-space:pre-wrap;
   }
 
-  .alert-actions { display: flex; gap: 6px; }
+  .alert-actions { display:flex; gap:6px; }
 
   .btn {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 8px; font-weight: 600;
-    letter-spacing: 1px; padding: 5px 12px;
-    border: none; cursor: pointer;
-    clip-path: polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);
-    transition: all 0.2s; text-transform: uppercase;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px; font-weight:600;
+    letter-spacing:1px; padding:6px 12px;
+    border: 1px solid; background:none; cursor:pointer;
+    transition: all 0.2s; text-transform:uppercase;
   }
-  .btn-ack {
-    background: rgba(0,255,136,0.15);
-    color: var(--green);
-    border: 1px solid rgba(0,255,136,0.3);
-  }
-  .btn-ack:hover { background: rgba(0,255,136,0.25); }
-  .btn-detail {
-    background: rgba(255,165,0,0.1);
-    color: var(--gold);
-    border: 1px solid rgba(255,165,0,0.2);
-  }
-  .btn-detail:hover { background: rgba(255,165,0,0.2); }
-  .btn-acked {
-    background: rgba(255,255,255,0.05);
-    color: var(--text3);
-    border: 1px solid var(--border);
-    cursor: default;
-  }
+  .btn-ack   { color: var(--ok); border-color: rgba(89,201,165,0.35); background: rgba(89,201,165,0.06); }
+  .btn-ack:hover { background: rgba(89,201,165,0.14); }
+  .btn-detail{ color: var(--amber); border-color: rgba(255,176,32,0.3); background: rgba(255,176,32,0.05); }
+  .btn-detail:hover { background: rgba(255,176,32,0.13); }
+  .btn-acked { color: var(--paper3); border-color: var(--line2); cursor:default; }
 
-  /* ── Empty state ─────────────────────────────────────────── */
   .empty-state {
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 40px 20px; gap: 10px;
-    color: var(--text3);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding: 40px 20px; gap:10px; color: var(--paper3);
   }
-  .empty-icon { font-size: 32px; opacity: 0.4; }
-  .empty-text {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px; letter-spacing: 2px;
-    text-align: center;
-  }
+  .empty-icon { font-size:28px; opacity:0.4; }
+  .empty-text { font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:1.5px; text-align:center; }
 
-  /* ── History / chat panel ────────────────────────────────── */
   .history-list {
-    flex: 1; overflow-y: auto; padding: 10px;
-    display: flex; flex-direction: column; gap: 6px;
-    scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+    flex:1; overflow-y:auto; padding:10px;
+    display:flex; flex-direction:column; gap:6px;
+    scrollbar-width: thin; scrollbar-color: var(--line2) transparent;
   }
-
   .hist-item {
     padding: 8px 12px;
-    border: 1px solid var(--border);
-    background: rgba(255,255,255,0.02);
-    display: flex; flex-direction: column; gap: 3px;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.015);
+    display:flex; flex-direction:column; gap:3px;
     animation: cardIn 0.3s ease;
+    border-left: 2px solid var(--amber-dim);
   }
-  .hist-top {
-    display: flex; align-items: center;
-    justify-content: space-between;
-  }
-  .hist-type {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px; color: var(--gold); letter-spacing: 1px;
-  }
-  .hist-time {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px; color: var(--text3);
-  }
-  .hist-detail {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 12px; color: var(--text2); line-height: 1.4;
-  }
+  .hist-top { display:flex; align-items:center; justify-content:space-between; }
+  .hist-type { font-family:'IBM Plex Mono', monospace; font-size:9px; color: var(--amber); letter-spacing:0.5px; }
+  .hist-time { font-family:'IBM Plex Mono', monospace; font-size:9px; color: var(--paper3); }
+  .hist-detail { font-family:'IBM Plex Sans', sans-serif; font-size:12px; color: var(--paper2); line-height:1.4; }
 
-  /* ── Chat panel ──────────────────────────────────────────── */
   .chat-messages {
-    flex: 1; overflow-y: auto; padding: 12px;
-    display: flex; flex-direction: column; gap: 10px;
-    scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+    flex:1; overflow-y:auto; padding:12px;
+    display:flex; flex-direction:column; gap:10px;
+    scrollbar-width: thin; scrollbar-color: var(--line2) transparent;
   }
+  .chat-msg { display:flex; flex-direction:column; gap:3px; max-width:88%; }
+  .chat-msg.mechanic { align-self:flex-end; }
+  .chat-msg.system   { align-self:flex-start; }
+  .chat-tag { font-family:'IBM Plex Mono', monospace; font-size:8px; letter-spacing:1.5px; color: var(--paper3); padding:0 4px; }
+  .chat-msg.mechanic .chat-tag { text-align:right; color: var(--amber-dim); }
+  .chat-bubble { padding:10px 14px; font-size:13px; line-height:1.6; word-break:break-word; border: 1px solid; }
+  .chat-msg.system .chat-bubble { background: rgba(255,255,255,0.02); border-color: var(--line); color: var(--paper); border-left: 2px solid var(--paper3); }
+  .chat-msg.mechanic .chat-bubble { background: rgba(255,176,32,0.05); border-color: rgba(255,176,32,0.2); color: var(--paper); border-right: 2px solid var(--amber); }
+  .chat-bubble p { margin:4px 0; }
+  .chat-bubble strong { color: var(--amber); font-weight:600; }
+  .chat-bubble ul { padding-left:16px; margin:4px 0; }
+  .chat-bubble li { margin:2px 0; }
 
-  .chat-msg { display: flex; flex-direction: column; gap: 3px; max-width: 88%; }
-  .chat-msg.mechanic { align-self: flex-end; }
-  .chat-msg.system   { align-self: flex-start; }
-
-  .chat-tag {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 8px; letter-spacing: 2px; color: var(--text3); padding: 0 4px;
-  }
-  .chat-msg.mechanic .chat-tag { text-align: right; color: var(--gold2); }
-
-  .chat-bubble {
-    padding: 10px 14px; font-size: 13px; line-height: 1.6; word-break: break-word;
-  }
-  .chat-msg.system .chat-bubble {
-    background: rgba(0,212,255,0.05);
-    border: 1px solid rgba(0,212,255,0.15);
-    border-left: 2px solid var(--cyan);
-    clip-path: polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));
-    color: var(--text);
-  }
-  .chat-msg.mechanic .chat-bubble {
-    background: rgba(255,165,0,0.06);
-    border: 1px solid rgba(255,165,0,0.2);
-    border-right: 2px solid var(--gold);
-    clip-path: polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 0px) 100%,0 100%,0 8px);
-    color: var(--text);
-  }
-  .chat-bubble p   { margin: 4px 0; }
-  .chat-bubble strong { color: var(--gold3); font-weight: 600; }
-  .chat-bubble ul  { padding-left: 16px; margin: 4px 0; }
-  .chat-bubble li  { margin: 2px 0; }
-
-  .chat-input-row {
-    padding: 10px 12px;
-    border-top: 1px solid var(--border);
-    display: flex; gap: 8px; align-items: flex-end;
-    flex-shrink: 0;
-  }
+  .chat-input-row { padding:10px 12px; border-top:1px solid var(--line); display:flex; gap:8px; align-items:flex-end; flex-shrink:0; }
   .chat-input {
-    flex: 1; background: rgba(255,165,0,0.03);
-    border: 1px solid var(--border2); color: var(--text);
-    font-family: 'Rajdhani', sans-serif; font-size: 13px;
-    padding: 8px 12px; outline: none; resize: none;
-    max-height: 80px; min-height: 34px; line-height: 1.4;
-    clip-path: polygon(6px 0%,100% 0%,100% 100%,0% 100%,0% 6px);
+    flex:1; background: rgba(255,255,255,0.02);
+    border: 1px solid var(--line2); color: var(--paper);
+    font-family:'IBM Plex Sans', sans-serif; font-size:13px;
+    padding:8px 12px; outline:none; resize:none;
+    max-height:80px; min-height:34px; line-height:1.4;
     transition: border-color 0.2s;
   }
-  .chat-input:focus { border-color: var(--gold2); }
-  .chat-input::placeholder { color: var(--text3); font-size: 11px; }
-
+  .chat-input:focus { border-color: var(--amber-dim); }
+  .chat-input::placeholder { color: var(--paper3); font-size:11px; }
   .send-btn {
-    background: linear-gradient(135deg, var(--gold2), var(--gold));
-    border: none; color: #000;
-    font-family: 'Orbitron', sans-serif;
-    font-size: 9px; font-weight: 700;
-    letter-spacing: 1px; padding: 10px 16px;
-    cursor: pointer;
-    clip-path: polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);
-    transition: all 0.2s; white-space: nowrap;
+    background: var(--amber); border:none; color:#0c0e10;
+    font-family:'IBM Plex Mono', monospace; font-size:10px; font-weight:700;
+    letter-spacing:1px; padding:10px 16px; cursor:pointer;
+    transition: all 0.2s; white-space:nowrap;
   }
-  .send-btn:hover   { filter: brightness(1.2); }
-  .send-btn:disabled{ opacity: 0.4; cursor: not-allowed; }
+  .send-btn:hover { filter: brightness(1.15); }
+  .send-btn:disabled { opacity:0.35; cursor:not-allowed; }
 
-  /* ── Detail modal ────────────────────────────────────────── */
-  .modal-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.8); z-index: 500;
-    align-items: center; justify-content: center;
-  }
-  .modal-overlay.open { display: flex; }
+  .modal-overlay { display:none; position:fixed; inset:0; background: rgba(0,0,0,0.82); z-index:500; align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
   .modal {
-    background: var(--panel);
-    border: 1px solid var(--gold2);
-    box-shadow: var(--glow-g);
-    width: 90%; max-width: 700px;
-    max-height: 80vh; overflow-y: auto;
-    padding: 20px; position: relative;
-    clip-path: polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px));
+    background: var(--panel); border: 1px solid var(--amber-dim);
+    box-shadow: var(--glow-amb);
+    width:90%; max-width:700px; max-height:80vh; overflow-y:auto;
+    padding:22px; position:relative;
   }
-  .modal-title {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 14px; font-weight: 700;
-    color: var(--gold); letter-spacing: 3px;
-    margin-bottom: 16px;
-  }
-  .modal-body {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px; color: var(--text2);
-    line-height: 1.8; white-space: pre-wrap;
-  }
-  .modal-close {
-    position: absolute; top: 14px; right: 14px;
-    background: rgba(255,34,68,0.15);
-    border: 1px solid rgba(255,34,68,0.3);
-    color: var(--red); font-family: 'Orbitron', sans-serif;
-    font-size: 9px; padding: 4px 10px; cursor: pointer;
-  }
+  .modal-title { font-family:'IBM Plex Mono', monospace; font-size:14px; font-weight:700; color: var(--amber); letter-spacing:2px; margin-bottom:16px; }
+  .modal-body { font-family:'IBM Plex Mono', monospace; font-size:11px; color: var(--paper2); line-height:1.8; white-space:pre-wrap; }
+  .modal-close { position:absolute; top:14px; right:14px; background: rgba(255,77,79,0.12); border:1px solid rgba(255,77,79,0.35); color: var(--critical); font-family:'IBM Plex Mono', monospace; font-size:9px; padding:5px 10px; cursor:pointer; }
 
-  /* ── Scrollbar ───────────────────────────────────────────── */
-  ::-webkit-scrollbar { width: 3px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 1px; }
+  ::-webkit-scrollbar { width:3px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line2); }
+
+  @media (max-width: 1100px) {
+    .main { grid-template-columns: 1fr 1fr; }
+    .vehicle-bar { grid-column: 1/3; grid-template-columns: repeat(4,1fr); }
+    .panel[style*="grid-row: 2"] { grid-column: 1/3; }
+    .panel[style*="grid-column: 1 / 3"] { grid-column: 1/2 !important; }
+    .panel[style*="grid-row: 3"]:not([style*="grid-column"]) { grid-column: 2/3; grid-row:3; }
+  }
+  @media (max-width: 820px) {
+    header { flex-wrap:wrap; gap:10px; padding:10px 14px; }
+    .header-center { order:3; width:100%; align-items:flex-start; border:none; padding:0; }
+    .main { grid-template-columns: 1fr; padding:8px; gap:8px; }
+    .vehicle-bar { grid-column:1; grid-template-columns: repeat(4,1fr); }
+    .panel, .panel[style] { grid-column:1 !important; grid-row:auto !important; }
+    .panel { min-height:260px; }
+    .chat-messages, .alert-list, .history-list { max-height:320px; }
+  }
+  @media (max-width: 560px) {
+    header { padding:10px; }
+    .logo-main { font-size:14px; letter-spacing:2px; }
+    .logo-sub { display:none; }
+    .mechanic-id { display:none; }
+    .nav-link { padding:5px 8px; font-size:9px; }
+    .vehicle-bar { grid-template-columns: repeat(2,1fr); }
+    .vstat-val { font-size:16px; }
+    .alert-actions { flex-direction:column; }
+    .btn { width:100%; text-align:center; }
+    .chat-input-row { flex-wrap:wrap; }
+    .send-btn { width:100%; }
+    .modal { width:94%; padding:14px; }
+  }
 </style>
 </head>
 <body>
 
-<!-- ── Header ──────────────────────────────────────────────── -->
 <header>
   <div class="logo-block">
-    <div class="wrench-icon">🔧</div>
+    <div class="wrench-icon">◈</div>
     <div class="logo-text">
       <div class="logo-main">ACDT MECH</div>
-      <div class="logo-sub">TECHNICIAN INTERFACE · ORG.EXAMPLE:MECHANIC_001</div>
+      <div class="logo-sub">SVC.PLATE · MECHANIC_001</div>
     </div>
   </div>
   <div class="header-center">
-    <div class="mechanic-name">MASTER TECHNICIAN</div>
-    <div class="mechanic-id">ACDT SERVICE CENTRE · TOYOTA SPECIALIST</div>
+    <div class="mechanic-name">Master Technician</div>
+    <div class="mechanic-id">ACDT Service Centre · Toyota Specialist</div>
   </div>
   <div class="header-right">
     <div class="conn-status">
@@ -523,57 +413,54 @@
   </div>
 </header>
 
-<!-- ── Main ────────────────────────────────────────────────── -->
 <div class="main">
 
-  <!-- Vehicle status bar -->
   <div class="vehicle-bar">
     <div class="vstat">
       <div class="vstat-val" id="vs-rpm">—</div>
-      <div class="vstat-lbl">ENGINE RPM</div>
+      <div class="vstat-lbl">Engine RPM</div>
       <div class="vstat-bar"><div class="vstat-fill" id="vb-rpm" style="width:0%"></div></div>
     </div>
     <div class="vstat">
       <div class="vstat-val" id="vs-coolant">—</div>
-      <div class="vstat-lbl">COOLANT °C</div>
+      <div class="vstat-lbl">Coolant °C</div>
       <div class="vstat-bar"><div class="vstat-fill" id="vb-coolant" style="width:0%"></div></div>
     </div>
     <div class="vstat">
       <div class="vstat-val" id="vs-speed">—</div>
-      <div class="vstat-lbl">SPEED km/h</div>
+      <div class="vstat-lbl">Speed km/h</div>
       <div class="vstat-bar"><div class="vstat-fill" id="vb-speed" style="width:0%"></div></div>
     </div>
     <div class="vstat">
       <div class="vstat-val" id="vs-fuel">—</div>
-      <div class="vstat-lbl">FUEL %</div>
+      <div class="vstat-lbl">Fuel %</div>
       <div class="vstat-bar"><div class="vstat-fill" id="vb-fuel" style="width:0%"></div></div>
     </div>
     <div class="vstat">
       <div class="vstat-val" id="vs-batt">—</div>
-      <div class="vstat-lbl">BATTERY V</div>
+      <div class="vstat-lbl">Battery V</div>
       <div class="vstat-bar"><div class="vstat-fill" id="vb-batt" style="width:0%"></div></div>
     </div>
     <div class="vstat">
       <div class="vstat-val" id="vs-oil">—</div>
-      <div class="vstat-lbl">OIL TEMP °C</div>
+      <div class="vstat-lbl">Oil Temp °C</div>
       <div class="vstat-bar"><div class="vstat-fill" id="vb-oil" style="width:0%"></div></div>
     </div>
     <div class="vstat">
       <div class="vstat-val" id="vs-load">—</div>
-      <div class="vstat-lbl">ENGINE LOAD %</div>
+      <div class="vstat-lbl">Engine Load %</div>
       <div class="vstat-bar"><div class="vstat-fill" id="vb-load" style="width:0%"></div></div>
     </div>
     <div class="vstat">
       <div class="vstat-val" id="vs-health">—</div>
-      <div class="vstat-lbl">HEALTH SCORE</div>
+      <div class="vstat-lbl">Health Score</div>
       <div class="vstat-bar"><div class="vstat-fill" id="vb-health" style="width:0%"></div></div>
     </div>
   </div>
 
-  <!-- Emergency queue -->
   <div class="panel">
     <div class="panel-header">
-      <div class="panel-title emergency">🚨 EMERGENCY QUEUE</div>
+      <div class="panel-title emergency">Emergency Queue</div>
       <div class="badge red" id="emergencyCount">0</div>
     </div>
     <div class="alert-list" id="emergencyList">
@@ -584,10 +471,9 @@
     </div>
   </div>
 
-  <!-- Maintenance queue -->
   <div class="panel">
     <div class="panel-header">
-      <div class="panel-title maintenance">🔧 MAINTENANCE QUEUE</div>
+      <div class="panel-title maintenance">Maintenance Queue</div>
       <div class="badge amber" id="maintenanceCount">0</div>
     </div>
     <div class="alert-list" id="maintenanceList">
@@ -598,37 +484,34 @@
     </div>
   </div>
 
-  <!-- Mechanic notes / chat -->
   <div class="panel" style="grid-row: 2">
     <div class="panel-header">
-      <div class="panel-title chat">◈ MECHANIC NOTES</div>
-      <div class="badge cyan" id="noteCount">0</div>
+      <div class="panel-title chat">ATDT — Diagnosis &amp; Repair</div>
+      <span id="atdtModeLabel" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--paper3);letter-spacing:1px;">MODE: DIAGNOSE</span>
     </div>
     <div class="chat-messages" id="chatMessages">
       <div class="chat-msg system">
         <div class="chat-tag">◈ ACDT SYSTEM</div>
         <div class="chat-bubble">
-          Mechanic interface online. Monitoring vehicle VIN_1234567890.
-          Emergency and maintenance alerts will appear automatically.
-          Use the notes panel to log observations.
+          ATDT online. Describe a symptom to get a diagnosis, or start
+          a repair procedure once a failure mode is confirmed.
         </div>
       </div>
     </div>
     <div class="chat-input-row">
       <textarea class="chat-input" id="noteInput"
-        placeholder="Log a note or observation..."
+        placeholder="Describe the symptom, or 'next' / 'repeat' / 'back' during a repair..."
         rows="1"
-        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addNote()}"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAtdtMessage()}"
         oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"
       ></textarea>
-      <button class="send-btn" onclick="addNote()">LOG</button>
+      <button class="send-btn" onclick="sendAtdtMessage()">SEND</button>
     </div>
   </div>
 
-  <!-- Event history -->
   <div class="panel" style="grid-column: 1 / 3; grid-row: 3">
     <div class="panel-header">
-      <div class="panel-title history">◈ EVENT HISTORY</div>
+      <div class="panel-title history">Event History</div>
       <div class="badge cyan" id="historyCount">0</div>
     </div>
     <div class="history-list" id="historyList">
@@ -639,10 +522,9 @@
     </div>
   </div>
 
-  <!-- Acknowledged log -->
   <div class="panel" style="grid-row: 3">
     <div class="panel-header">
-      <div class="panel-title" style="color:var(--green)">◈ ACKNOWLEDGED</div>
+      <div class="panel-title ack" style="color:var(--ok)">Acknowledged</div>
       <div class="badge cyan" id="ackCount">0</div>
     </div>
     <div class="alert-list" id="ackList">
@@ -655,7 +537,6 @@
 
 </div>
 
-<!-- ── Detail Modal ─────────────────────────────────────────── -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
   <div class="modal">
     <button class="modal-close" onclick="closeModal()">✕ CLOSE</button>
@@ -667,13 +548,10 @@
 <script>
 marked.setOptions({ breaks: true, gfm: true });
 
-// ── State ───────────────────────────────────────────────────────────
 const acknowledged = new Set();
-const notes        = [];
 let   lastEmerCount = 0;
 let   lastMaintCount = 0;
 
-// ── Time ────────────────────────────────────────────────────────────
 function fmtTime(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -686,7 +564,6 @@ function fmtDate(iso) {
          d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
 }
 
-// ── Vehicle stats ───────────────────────────────────────────────────
 function setStat(id, val, min, max, warn, crit, dec = 0) {
   if (val == null) return;
   const el = document.getElementById(`vs-${id}`);
@@ -721,12 +598,11 @@ async function fetchHealth() {
     const bar   = document.getElementById('vb-health');
     el.textContent = score;
     bar.style.width = score + '%';
-    bar.style.background = score >= 85 ? 'var(--green)' : score >= 60 ? 'var(--amber)' : 'var(--red)';
+    bar.style.background = score >= 85 ? 'var(--ok)' : score >= 60 ? 'var(--caution)' : 'var(--critical)';
     el.className = 'vstat-val' + (score < 60 ? ' crit' : score < 85 ? ' warn' : '');
   } catch(e) {}
 }
 
-// ── Connection status ───────────────────────────────────────────────
 async function checkConnection() {
   try {
     const data = await (await fetch('/api/mechanic/status')).json();
@@ -748,7 +624,6 @@ async function checkConnection() {
   }
 }
 
-// ── Alert card builder ──────────────────────────────────────────────
 function buildAlertCard(item, idx, queueType) {
   const id       = `${queueType}-${idx}`;
   const isAcked  = acknowledged.has(id);
@@ -780,7 +655,6 @@ function buildAlertCard(item, idx, queueType) {
   return card;
 }
 
-// ── Emergency queue ─────────────────────────────────────────────────
 async function fetchEmergency() {
   try {
     const items = await (await fetch('/api/mechanic/emergency')).json();
@@ -796,13 +670,11 @@ async function fetchEmergency() {
       return;
     }
 
-    // Only rebuild if count changed
     if (items.length !== lastEmerCount) {
       list.innerHTML = '';
       items.forEach((item, i) => list.appendChild(buildAlertCard(item, i, 'emer')));
       lastEmerCount = items.length;
 
-      // Flash badge if new critical alert
       if (items[0]?.severity === 'critical') {
         badge.style.animation = 'none';
         badge.offsetHeight;
@@ -812,7 +684,6 @@ async function fetchEmergency() {
   } catch(e) {}
 }
 
-// ── Maintenance queue ───────────────────────────────────────────────
 async function fetchMaintenance() {
   try {
     const items = await (await fetch('/api/mechanic/maintenance')).json();
@@ -836,7 +707,6 @@ async function fetchMaintenance() {
   } catch(e) {}
 }
 
-// ── Event history ───────────────────────────────────────────────────
 async function fetchHistory() {
   try {
     const events = await (await fetch('/api/events')).json();
@@ -870,7 +740,6 @@ async function fetchHistory() {
   } catch(e) {}
 }
 
-// ── Acknowledge ─────────────────────────────────────────────────────
 async function acknowledge(id, queueType, alertType) {
   acknowledged.add(id);
   const card = document.getElementById(`card-${id}`);
@@ -886,7 +755,6 @@ async function acknowledge(id, queueType, alertType) {
     }
   }
 
-  // Log to system
   try {
     await fetch('/api/mechanic/acknowledge', {
       method: 'POST',
@@ -895,10 +763,7 @@ async function acknowledge(id, queueType, alertType) {
     });
   } catch(e) {}
 
-  // Add to acknowledged panel
   addAcknowledgedEntry(alertType);
-
-  // Add system note
   addSystemMessage(`Alert acknowledged: ${alertType}`);
 }
 
@@ -911,39 +776,131 @@ function addAcknowledgedEntry(type) {
   item.className = 'hist-item';
   item.innerHTML = `
     <div class="hist-top">
-      <span class="hist-type" style="color:var(--green)">✓ ${type}</span>
+      <span class="hist-type" style="color:var(--ok)">✓ ${type}</span>
       <span class="hist-time">${fmtTime()}</span>
     </div>
-    <div class="hist-detail" style="color:var(--text3)">Acknowledged by Master Technician</div>`;
+    <div class="hist-detail" style="color:var(--paper3)">Acknowledged by Master Technician</div>`;
   list.insertBefore(item, list.firstChild);
   badge.textContent = parseInt(badge.textContent || '0') + 1;
 }
 
-// ── Notes / chat ────────────────────────────────────────────────────
-function addNote() {
+// ── ATDT chat state ─────────────────────────────────────────────
+const ATDT_SESSION_ID = 'mechanic_001';
+let atdtMode = 'diagnose'; // 'diagnose' | 'guidance'
+
+// Known failure-mode keys the diagnostic agent can surface — used only
+// client-side to detect when to offer a "Start Repair" button. Keep in
+// sync with neo4j_kg.py's FailureMode names.
+const KNOWN_FAILURE_MODES = [
+  'cat_efficiency_below_threshold',
+  'engine_overheating',
+  'o2_sensor_failure',
+  'engine_misfire',
+  'lean_fuel_mixture',
+  'rich_fuel_mixture',
+  'transmission_slip',
+];
+
+function setAtdtMode(mode) {
+  atdtMode = mode;
+  const label = document.getElementById('atdtModeLabel');
+  const input = document.getElementById('noteInput');
+  if (mode === 'guidance') {
+    label.innerHTML = 'MODE: REPAIR <a href="#" onclick="resetAtdtMode();return false;" style="color:var(--amber);text-decoration:underline;margin-left:8px;">‹ New Diagnosis</a>';
+    input.placeholder = "'next' / 'repeat' / 'back' / ask a question about this step...";
+  } else {
+    label.textContent = 'MODE: DIAGNOSE';
+    input.placeholder = "Describe the symptom, or 'next' / 'repeat' / 'back' during a repair...";
+  }
+}
+
+function resetAtdtMode() {
+  setAtdtMode('diagnose');
+  addSystemMessage('Switched back to diagnosis mode.');
+}
+
+async function sendAtdtMessage() {
   const input = document.getElementById('noteInput');
   const text  = input.value.trim();
   if (!text) return;
   input.value = '';
   input.style.height = 'auto';
 
-  const msgs  = document.getElementById('chatMessages');
-  const badge = document.getElementById('noteCount');
-  const div   = document.createElement('div');
-  div.className = 'chat-msg mechanic';
-  div.innerHTML = `
-    <div class="chat-tag">◈ MASTER TECHNICIAN · ${fmtTime()}</div>
-    <div class="chat-bubble">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
-  badge.textContent = parseInt(badge.textContent || '0') + 1;
-  notes.push({ text, time: new Date().toISOString() });
+  addChatMessage('mechanic', text);
+
+  const endpoint = atdtMode === 'guidance' ? '/api/atdt/guidance' : '/api/atdt/diagnose';
+  const body = atdtMode === 'guidance'
+    ? { query: text, session_id: ATDT_SESSION_ID }
+    : { query: text };
+
+  addSystemMessage('Thinking…', true);
+
+  try {
+    const res  = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    removeThinkingMessage();
+
+    const responseText = data.response || 'No response.';
+    const matchedFailure = atdtMode === 'diagnose'
+      ? KNOWN_FAILURE_MODES.find(f => responseText.includes(f))
+      : null;
+
+    addChatMessage('system', responseText, matchedFailure);
+  } catch (e) {
+    removeThinkingMessage();
+    addSystemMessage('ATDT connection error — check the service.');
+  }
 }
 
-function addSystemMessage(text) {
+function startRepair(failureName) {
+  setAtdtMode('guidance');
+  addChatMessage('mechanic', `Start repair on ${failureName}`);
+  sendAtdtGuidanceDirect(`Start the repair procedure for ${failureName}.`);
+}
+
+async function sendAtdtGuidanceDirect(query) {
+  addSystemMessage('Thinking…', true);
+  try {
+    const res  = await fetch('/api/atdt/guidance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, session_id: ATDT_SESSION_ID })
+    });
+    const data = await res.json();
+    removeThinkingMessage();
+    addChatMessage('system', data.response || 'No response.');
+  } catch (e) {
+    removeThinkingMessage();
+    addSystemMessage('ATDT connection error — check the service.');
+  }
+}
+
+function addChatMessage(role, text, matchedFailure) {
+  const msgs = document.getElementById('chatMessages');
+  const div  = document.createElement('div');
+  div.className = `chat-msg ${role === 'mechanic' ? 'mechanic' : 'system'}`;
+  const tag  = role === 'mechanic' ? 'MASTER TECHNICIAN' : 'ATDT';
+  const bodyHtml = marked.parse(text || '');
+  let extra = '';
+  if (matchedFailure) {
+    extra = `<button class="btn btn-ack" style="margin-top:8px" onclick="startRepair('${matchedFailure}')">▶ START REPAIR</button>`;
+  }
+  div.innerHTML = `
+    <div class="chat-tag">◈ ${tag} · ${fmtTime()}</div>
+    <div class="chat-bubble">${bodyHtml}${extra}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addSystemMessage(text, isThinking) {
   const msgs = document.getElementById('chatMessages');
   const div  = document.createElement('div');
   div.className = 'chat-msg system';
+  if (isThinking) div.id = 'atdtThinking';
   div.innerHTML = `
     <div class="chat-tag">◈ ACDT SYSTEM · ${fmtTime()}</div>
     <div class="chat-bubble">${text}</div>`;
@@ -951,7 +908,11 @@ function addSystemMessage(text) {
   msgs.scrollTop = msgs.scrollHeight;
 }
 
-// ── Detail modal ────────────────────────────────────────────────────
+function removeThinkingMessage() {
+  const el = document.getElementById('atdtThinking');
+  if (el) el.remove();
+}
+
 function showDetail(type, report, time, sev) {
   document.getElementById('modalTitle').textContent = `${type} · ${time}`;
   document.getElementById('modalBody').textContent  = report;
@@ -964,7 +925,6 @@ function closeModal(e) {
   }
 }
 
-// ── Boot ────────────────────────────────────────────────────────────
 fetchSensors();
 fetchHealth();
 checkConnection();

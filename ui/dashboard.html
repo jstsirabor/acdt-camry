@@ -3,567 +3,384 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ACDT — J.A.R.V.I.S. Automotive</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<title>ACDT — Vehicle Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 <style>
   :root {
-    --bg:       #010409;
-    --bg2:      #050b12;
-    --bg3:      #08121e;
-    --panel:    #061018;
-    --blue:     #00a8ff;
-    --blue2:    #0066cc;
-    --cyan:     #00fff0;
-    --cyan2:    #00cccc;
-    --gold:     #ffa500;
-    --gold2:    #cc7700;
-    --red:      #ff2244;
-    --green:    #00ff88;
-    --amber:    #ffaa00;
-    --text:     #c8e8ff;
-    --text2:    #5580aa;
-    --text3:    #2a4060;
-    --border:   #0a2040;
-    --border2:  #0d3060;
-    --glow-b:   0 0 30px rgba(0,168,255,0.4);
-    --glow-c:   0 0 20px rgba(0,255,240,0.3);
-    --glow-g:   0 0 20px rgba(0,255,136,0.3);
-    --glow-r:   0 0 25px rgba(255,34,68,0.5);
-    --glow-gold:0 0 20px rgba(255,165,0,0.4);
+    --bg:       #0c0e10;
+    --bg2:      #101215;
+    --panel:    #15181b;
+    --line:     #262b30;
+    --line2:    #33393f;
+    --paper:    #eae6dc;
+    --paper2:   #a7a89f;
+    --paper3:   #5c6167;
+    --amber:    #ffb020;
+    --amber-dim:#7a5316;
+    --caution:  #ff8a3d;
+    --critical: #ff4d4f;
+    --ok:       #59c9a5;
+    --glow-amb: 0 0 22px rgba(255,176,32,0.3);
+    --glow-crit:0 0 22px rgba(255,77,79,0.45);
   }
 
   * { margin:0; padding:0; box-sizing:border-box; }
 
   body {
     background: var(--bg);
-    color: var(--text);
-    font-family: 'Rajdhani', sans-serif;
+    color: var(--paper);
+    font-family: 'IBM Plex Sans', sans-serif;
     height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    position: relative;
+    display:flex; flex-direction:column;
+    overflow:hidden; position:relative;
   }
 
-  /* ── Animated background grid ─────────────────────────── */
   body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image:
-      linear-gradient(rgba(0,168,255,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,168,255,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-    animation: gridMove 20s linear infinite;
-  }
-  @keyframes gridMove {
-    0%   { background-position: 0 0; }
-    100% { background-position: 40px 40px; }
+    content:''; position:fixed; inset:0;
+    background-image: repeating-linear-gradient(115deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    pointer-events:none; z-index:0;
   }
 
-  /* ── Scanlines ────────────────────────────────────────── */
-  body::after {
-    content: '';
-    position: fixed; inset: 0;
-    background: repeating-linear-gradient(
-      0deg, transparent, transparent 3px,
-      rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 4px
-    );
-    pointer-events: none;
-    z-index: 1001;
+  /* soft amber halo, subject-appropriate (dash backlight glow) instead of arc-reactor sci-fi */
+  .dash-glow {
+    position:fixed; top:-10%; left:50%; transform:translateX(-50%);
+    width:900px; height:400px; border-radius:50%;
+    background: radial-gradient(ellipse, rgba(255,176,32,0.05) 0%, transparent 70%);
+    pointer-events:none; z-index:0;
   }
 
-  /* ── Arc reactor pulse ────────────────────────────────── */
-  .arc-reactor {
-    position: fixed;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 600px; height: 600px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(0,168,255,0.03) 0%, transparent 70%);
-    animation: arcPulse 4s ease-in-out infinite;
-    pointer-events: none;
-    z-index: 0;
-  }
-  @keyframes arcPulse {
-    0%,100% { transform: translate(-50%,-50%) scale(1); opacity: 0.5; }
-    50%      { transform: translate(-50%,-50%) scale(1.1); opacity: 1; }
-  }
-
-  /* ── Header ───────────────────────────────────────────── */
+  /* ── Header : stamped plate ─────────────────────────────── */
   .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 24px;
-    background: linear-gradient(180deg, rgba(0,168,255,0.08) 0%, rgba(0,168,255,0.02) 100%);
-    border-bottom: 1px solid var(--border2);
-    position: relative;
-    z-index: 10;
-    flex-shrink: 0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 12px 26px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--line);
+    position:relative; z-index:10; flex-shrink:0;
   }
-  .topbar::after {
-    content: '';
-    position: absolute; bottom: -2px; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--blue), var(--cyan), var(--blue), transparent);
-    animation: scanLine 3s ease-in-out infinite;
-  }
-  @keyframes scanLine {
-    0%,100% { opacity: 0.5; } 50% { opacity: 1; }
+  .topbar::before {
+    content:''; position:absolute; inset:6px;
+    border: 1px dashed rgba(255,176,32,0.1);
+    pointer-events:none;
   }
 
-  .logo-block {
-    display: flex; align-items: center; gap: 14px;
-  }
+  .logo-block { display:flex; align-items:center; gap:14px; }
   .arc-icon {
-    width: 44px; height: 44px;
-    position: relative;
-    display: flex; align-items: center; justify-content: center;
+    width:40px; height:40px;
+    border: 1px solid var(--amber);
+    background: var(--panel);
+    display:flex; align-items:center; justify-content:center;
+    position:relative; box-shadow: var(--glow-amb);
   }
-  .arc-icon svg { position: absolute; }
   .arc-inner {
-    width: 20px; height: 20px;
-    background: var(--blue);
-    border-radius: 50%;
-    box-shadow: 0 0 15px var(--blue), 0 0 30px rgba(0,168,255,0.5);
-    animation: arcGlow 2s ease-in-out infinite;
-    z-index: 1;
+    width:8px; height:8px; border-radius:50%;
+    background: var(--amber);
+    box-shadow: 0 0 10px var(--amber);
+    animation: arcGlow 2.4s ease-in-out infinite;
   }
-  @keyframes arcGlow {
-    0%,100% { box-shadow: 0 0 15px var(--blue), 0 0 30px rgba(0,168,255,0.5); }
-    50%      { box-shadow: 0 0 25px var(--cyan), 0 0 50px rgba(0,255,240,0.6); }
-  }
+  @keyframes arcGlow { 0%,100%{opacity:0.6} 50%{opacity:1} }
 
-  .logo-text {
-    display: flex; flex-direction: column; gap: 0;
-  }
+  .logo-text { display:flex; flex-direction:column; gap:2px; }
   .logo-main {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 20px; font-weight: 900;
-    color: var(--blue);
-    text-shadow: var(--glow-b);
-    letter-spacing: 6px;
-    line-height: 1;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:18px; font-weight:700; color: var(--paper);
+    letter-spacing:5px; line-height:1;
   }
   .logo-sub {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px; color: var(--text2);
-    letter-spacing: 4px;
-    margin-top: 2px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px; color: var(--amber); letter-spacing:2px; margin-top:2px;
   }
 
   .header-center {
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding: 6px 22px;
+    border-left: 1px solid var(--line); border-right: 1px solid var(--line);
   }
   .vehicle-id {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 13px; font-weight: 600;
-    color: var(--text); letter-spacing: 3px;
+    font-family:'IBM Plex Sans Condensed', sans-serif;
+    font-size:13px; font-weight:700; color: var(--paper);
+    letter-spacing:2px; text-transform:uppercase;
   }
   .vehicle-vin {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px; color: var(--text3); letter-spacing: 2px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px; color: var(--paper3); letter-spacing:1px;
   }
 
-  .header-right {
-    display: flex; align-items: center; gap: 16px;
-  }
+  .header-right { display:flex; align-items:center; gap:14px; }
 
   .status-hud {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 14px;
-    border: 1px solid var(--border2);
-    background: rgba(0,168,255,0.05);
-    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    display:flex; align-items:center; gap:8px;
+    padding: 6px 14px; border: 1px solid var(--line2); background: var(--panel);
   }
-  .status-dot-hud {
-    width: 8px; height: 8px; border-radius: 50%;
-    animation: pulse 2s infinite;
-  }
-  .status-dot-hud.good     { background: var(--green); box-shadow: var(--glow-g); }
-  .status-dot-hud.warning  { background: var(--amber); }
-  .status-dot-hud.critical { background: var(--red);   box-shadow: var(--glow-r); }
-  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+  .status-dot-hud { width:7px; height:7px; border-radius:50%; animation: pulse 2s infinite; }
+  .status-dot-hud.good     { background: var(--ok); box-shadow: 0 0 10px rgba(89,201,165,0.6); }
+  .status-dot-hud.warning  { background: var(--caution); }
+  .status-dot-hud.critical { background: var(--critical); box-shadow: var(--glow-crit); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-  .status-text-hud {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 10px; font-weight: 600;
-    letter-spacing: 2px;
-  }
-  .status-text-hud.good     { color: var(--green); }
-  .status-text-hud.warning  { color: var(--amber); }
-  .status-text-hud.critical { color: var(--red); }
+  .status-text-hud { font-family:'IBM Plex Mono', monospace; font-size:10px; font-weight:600; letter-spacing:1.5px; }
+  .status-text-hud.good     { color: var(--ok); }
+  .status-text-hud.warning  { color: var(--caution); }
+  .status-text-hud.critical { color: var(--critical); }
 
   .source-chip {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px; color: var(--blue);
-    padding: 3px 10px;
-    border: 1px solid var(--border2);
-    letter-spacing: 2px;
-    background: rgba(0,168,255,0.05);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px; color: var(--amber);
+    padding: 4px 10px; border: 1px solid var(--line2);
+    letter-spacing:1.5px; background: var(--panel);
   }
 
-  /* ── Stats strip ──────────────────────────────────────── */
+  /* ── Stats strip — gauge readouts ────────────────────────── */
   .stats-strip {
-    display: flex;
-    background: var(--bg2);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-    position: relative;
-    z-index: 10;
+    display:flex; background: var(--bg2);
+    border-bottom: 1px solid var(--line);
+    flex-shrink:0; overflow-x:auto; scrollbar-width:none;
+    position:relative; z-index:10;
   }
-  .stats-strip::-webkit-scrollbar { display: none; }
+  .stats-strip::-webkit-scrollbar { display:none; }
 
   .stat-cell {
-    display: flex; flex-direction: column; align-items: center;
-    padding: 8px 22px;
-    border-right: 1px solid var(--border);
-    min-width: 95px; gap: 1px;
-    position: relative;
-    transition: background 0.3s;
+    display:flex; flex-direction:column; align-items:center;
+    padding: 9px 22px;
+    border-right: 1px solid var(--line);
+    min-width:95px; gap:2px;
+    position:relative; transition: background 0.3s;
   }
-  .stat-cell:hover { background: rgba(0,168,255,0.05); }
-  .stat-cell.warn  { background: rgba(255,170,0,0.04); }
-  .stat-cell.crit  { background: rgba(255,34,68,0.06); }
+  .stat-cell:hover { background: rgba(255,176,32,0.04); }
+  .stat-cell.warn { background: rgba(255,138,61,0.04); }
+  .stat-cell.crit { background: rgba(255,77,79,0.06); }
 
   .stat-num {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 17px; font-weight: 700;
-    color: var(--blue); text-shadow: var(--glow-b);
-    line-height: 1; transition: color 0.3s, text-shadow 0.3s;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:17px; font-weight:600; color: var(--amber);
+    line-height:1; font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
   }
-  .stat-cell.warn .stat-num { color: var(--amber); text-shadow: none; }
-  .stat-cell.crit .stat-num { color: var(--red);   text-shadow: var(--glow-r); }
+  .stat-cell.warn .stat-num { color: var(--caution); }
+  .stat-cell.crit .stat-num { color: var(--critical); text-shadow: var(--glow-crit); }
 
   .stat-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 8px; color: var(--text3);
-    text-transform: uppercase; letter-spacing: 1px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:8px; color: var(--paper3);
+    text-transform:uppercase; letter-spacing:1px;
   }
   .stat-micro-bar {
-    width: 100%; height: 2px;
-    background: var(--border);
-    border-radius: 1px; margin-top: 3px; overflow: hidden;
+    width:100%; height:3px; margin-top:4px;
+    background: repeating-linear-gradient(90deg, var(--line2) 0, var(--line2) 1px, transparent 1px, transparent 12%);
+    position:relative; overflow:visible;
   }
   .stat-micro-fill {
-    height: 100%; border-radius: 1px;
-    background: linear-gradient(90deg, var(--blue2), var(--blue));
+    height:100%; border-radius:0;
+    background: linear-gradient(90deg, var(--amber-dim), var(--amber));
     transition: width 0.6s ease, background 0.3s;
-    box-shadow: 0 0 6px var(--blue);
+    position:relative;
   }
-  .stat-cell.warn .stat-micro-fill { background: var(--amber); box-shadow: none; }
-  .stat-cell.crit .stat-micro-fill { background: var(--red);   box-shadow: var(--glow-r); }
+  .stat-micro-fill::after {
+    content:''; position:absolute; right:-2px; top:50%; transform:translateY(-50%);
+    width:5px; height:5px; border-radius:50%;
+    background: var(--amber); box-shadow: 0 0 8px 2px rgba(255,176,32,0.7);
+  }
+  .stat-cell.warn .stat-micro-fill { background: var(--caution); }
+  .stat-cell.warn .stat-micro-fill::after { background: var(--caution); box-shadow:0 0 8px 2px rgba(255,138,61,0.7); }
+  .stat-cell.crit .stat-micro-fill { background: var(--critical); box-shadow: var(--glow-crit); }
+  .stat-cell.crit .stat-micro-fill::after { background: var(--critical); box-shadow:0 0 10px 2px rgba(255,77,79,0.8); }
 
-  /* ── Chat area ────────────────────────────────────────── */
+  /* ── Chat area ────────────────────────────────────────────── */
   .chat-area {
-    flex: 1; overflow-y: auto;
-    padding: 20px 20px;
-    display: flex; flex-direction: column; gap: 18px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border2) transparent;
-    position: relative; z-index: 5;
+    flex:1; overflow-y:auto; padding: 22px 22px;
+    display:flex; flex-direction:column; gap:18px;
+    scrollbar-width: thin; scrollbar-color: var(--line2) transparent;
+    position:relative; z-index:5;
   }
 
-  /* ── Messages ─────────────────────────────────────────── */
-  .msg-row {
-    display: flex; flex-direction: column;
-    gap: 4px; animation: msgIn 0.35s ease;
-    max-width: 80%;
-  }
-  @keyframes msgIn {
-    from { opacity:0; transform: translateY(10px) scale(0.98); }
-    to   { opacity:1; transform: translateY(0) scale(1); }
-  }
-  .msg-row.acdt   { align-self: flex-start; }
-  .msg-row.driver { align-self: flex-end; }
-  .msg-row.system { align-self: center; max-width: 88%; }
+  .msg-row { display:flex; flex-direction:column; gap:4px; animation: msgIn 0.35s ease; max-width:78%; }
+  @keyframes msgIn { from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)} }
+  .msg-row.acdt   { align-self:flex-start; }
+  .msg-row.driver { align-self:flex-end; }
+  .msg-row.system { align-self:center; max-width:88%; }
 
-  .msg-tag {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px; letter-spacing: 2px;
-    color: var(--text3); padding: 0 6px;
-  }
-  .msg-row.driver .msg-tag { text-align: right; color: var(--blue2); }
+  .msg-tag { font-family:'IBM Plex Mono', monospace; font-size:9px; letter-spacing:1.5px; color: var(--paper3); padding:0 6px; }
+  .msg-row.driver .msg-tag { text-align:right; color: var(--amber-dim); }
 
-  .bubble {
-    padding: 14px 18px;
-    font-size: 14px; line-height: 1.65;
-    word-break: break-word;
-    position: relative;
-  }
+  .bubble { padding: 14px 18px; font-size:14px; line-height:1.65; word-break:break-word; position:relative; border: 1px solid; }
 
-  /* ACDT bubble — holographic panel look */
   .msg-row.acdt .bubble {
-    background: linear-gradient(135deg, rgba(0,168,255,0.06) 0%, rgba(0,20,40,0.8) 100%);
-    border: 1px solid var(--border2);
-    border-left: 2px solid var(--blue);
-    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
-    color: var(--text);
+    background: rgba(255,176,32,0.03);
+    border-color: var(--line);
+    border-left: 2px solid var(--amber);
+    color: var(--paper);
   }
-  .msg-row.acdt .bubble::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, var(--blue), transparent);
-    opacity: 0.6;
-  }
-
-  /* Driver bubble */
   .msg-row.driver .bubble {
-    background: linear-gradient(135deg, rgba(255,165,0,0.08) 0%, rgba(20,10,0,0.8) 100%);
-    border: 1px solid rgba(255,165,0,0.25);
-    border-right: 2px solid var(--gold);
-    clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 0px) 100%, 0 100%, 0 12px);
-    color: var(--text);
-    text-align: left;
+    background: rgba(255,255,255,0.02);
+    border-color: var(--line2);
+    border-right: 2px solid var(--paper2);
+    color: var(--paper); text-align:left;
   }
-
-  /* System bubble */
   .msg-row.system .bubble {
-    background: rgba(0,255,136,0.04);
-    border: 1px solid rgba(0,255,136,0.15);
-    color: var(--text2);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    text-align: center;
-    clip-path: none;
-    border-radius: 4px;
+    background: rgba(89,201,165,0.04);
+    border-color: rgba(89,201,165,0.18);
+    color: var(--paper2);
+    font-family:'IBM Plex Mono', monospace; font-size:11px; text-align:center;
   }
-
-  /* Urgent override */
   .msg-row.urgent .bubble {
-    background: linear-gradient(135deg, rgba(255,34,68,0.1) 0%, rgba(30,0,5,0.9) 100%);
-    border: 1px solid rgba(255,34,68,0.4);
-    border-left: 3px solid var(--red);
-    box-shadow: var(--glow-r);
-    clip-path: none;
-    border-radius: 4px;
+    background: rgba(255,77,79,0.07);
+    border-color: rgba(255,77,79,0.35);
+    border-left: 3px solid var(--critical);
+    box-shadow: var(--glow-crit);
   }
   .msg-row.caution .bubble {
-    background: linear-gradient(135deg, rgba(255,170,0,0.08) 0%, rgba(25,15,0,0.9) 100%);
-    border: 1px solid rgba(255,170,0,0.3);
-    border-left: 3px solid var(--amber);
-    clip-path: none;
-    border-radius: 4px;
+    background: rgba(255,138,61,0.06);
+    border-color: rgba(255,138,61,0.3);
+    border-left: 3px solid var(--caution);
   }
 
-  .msg-ts {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px; color: var(--text3); padding: 0 6px;
-  }
-  .msg-row.driver .msg-ts { text-align: right; }
+  .msg-ts { font-family:'IBM Plex Mono', monospace; font-size:9px; color: var(--paper3); padding:0 6px; }
+  .msg-row.driver .msg-ts { text-align:right; }
 
-  /* Markdown in ACDT bubbles */
-  .bubble p   { margin: 6px 0; }
-  .bubble p:first-child { margin-top: 0; }
-  .bubble p:last-child  { margin-bottom: 0; }
-  .bubble strong { color: var(--cyan); font-weight: 600; }
-  .bubble em     { color: var(--text2); font-style: italic; }
+  .bubble p { margin:6px 0; }
+  .bubble p:first-child { margin-top:0; }
+  .bubble p:last-child { margin-bottom:0; }
+  .bubble strong { color: var(--amber); font-weight:600; }
+  .bubble em { color: var(--paper2); font-style:italic; }
   .bubble h3 {
-    font-family: 'Orbitron', sans-serif; font-size: 12px;
-    font-weight: 700; color: var(--blue);
-    letter-spacing: 2px; margin: 10px 0 5px;
-    text-transform: uppercase;
+    font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:700;
+    color: var(--amber); letter-spacing:2px; margin:10px 0 5px; text-transform:uppercase;
   }
-  .bubble ul, .bubble ol { padding-left: 20px; margin: 6px 0; }
-  .bubble li  { margin: 4px 0; line-height: 1.6; }
+  .bubble ul, .bubble ol { padding-left:20px; margin:6px 0; }
+  .bubble li { margin:4px 0; line-height:1.6; }
   .bubble code {
-    font-family: 'Share Tech Mono', monospace; font-size: 11px;
-    background: rgba(0,168,255,0.1); color: var(--cyan);
-    padding: 1px 6px; border-radius: 2px;
-    border: 1px solid rgba(0,168,255,0.2);
+    font-family:'IBM Plex Mono', monospace; font-size:11px;
+    background: rgba(255,176,32,0.08); color: var(--amber);
+    padding:1px 6px; border: 1px solid rgba(255,176,32,0.2);
   }
-  .bubble table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px; }
+  .bubble table { width:100%; border-collapse:collapse; margin:10px 0; font-size:12px; }
   .bubble th {
-    background: rgba(0,168,255,0.1); color: var(--blue);
-    padding: 6px 10px; text-align: left;
-    border: 1px solid var(--border2);
-    font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 1px;
+    background: rgba(255,176,32,0.08); color: var(--amber); padding:6px 10px; text-align:left;
+    border: 1px solid var(--line2); font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:1px;
   }
-  .bubble td {
-    padding: 5px 10px; border: 1px solid var(--border);
-    color: var(--text2); font-size: 12px;
-  }
-  .bubble tr:nth-child(even) td { background: rgba(0,168,255,0.03); }
-  .bubble hr { border: none; border-top: 1px solid var(--border2); margin: 10px 0; }
+  .bubble td { padding:5px 10px; border: 1px solid var(--line); color: var(--paper2); font-size:12px; }
+  .bubble tr:nth-child(even) td { background: rgba(255,255,255,0.015); }
+  .bubble hr { border:none; border-top:1px solid var(--line2); margin:10px 0; }
 
-  /* ── Typing indicator ─────────────────────────────────── */
+  /* ── Typing indicator ─────────────────────────────────────── */
   .typing-wrap {
-    background: linear-gradient(135deg, rgba(0,168,255,0.06) 0%, rgba(0,20,40,0.8) 100%);
-    border: 1px solid var(--border2);
-    border-left: 2px solid var(--blue);
-    padding: 14px 20px;
-    display: flex; gap: 6px; align-items: center;
-    width: fit-content;
-    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    background: rgba(255,176,32,0.03); border: 1px solid var(--line);
+    border-left: 2px solid var(--amber);
+    padding: 14px 20px; display:flex; gap:6px; align-items:center; width:fit-content;
   }
-  .typing-dot {
-    width: 6px; height: 6px;
-    background: var(--blue); border-radius: 50%;
-    box-shadow: 0 0 6px var(--blue);
-    animation: tdot 1.4s infinite;
-  }
-  .typing-dot:nth-child(2) { animation-delay: 0.2s; background: var(--cyan); }
-  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes tdot {
-    0%,60%,100% { transform: scale(0.7); opacity: 0.3; }
-    30%          { transform: scale(1.2); opacity: 1; }
-  }
+  .typing-dot { width:6px; height:6px; background: var(--amber); border-radius:50%; box-shadow: 0 0 6px var(--amber); animation: tdot 1.4s infinite; }
+  .typing-dot:nth-child(2) { animation-delay:0.2s; }
+  .typing-dot:nth-child(3) { animation-delay:0.4s; }
+  @keyframes tdot { 0%,60%,100%{transform:scale(0.7); opacity:0.3} 30%{transform:scale(1.2); opacity:1} }
 
-  /* ── Quick replies ────────────────────────────────────── */
-  .quick-replies {
-    display: flex; flex-wrap: wrap; gap: 8px;
-    padding: 0 20px 10px;
-    flex-shrink: 0; position: relative; z-index: 5;
-  }
+  /* ── Quick replies ────────────────────────────────────────── */
+  .quick-replies { display:flex; flex-wrap:wrap; gap:8px; padding: 0 22px 12px; flex-shrink:0; position:relative; z-index:5; }
   .qr {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px; letter-spacing: 1px;
-    padding: 7px 16px;
-    border: 1px solid var(--border2);
-    background: rgba(0,168,255,0.04);
-    color: var(--text2);
-    cursor: pointer;
-    clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
-    transition: all 0.2s;
-    text-transform: uppercase;
+    font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:1px;
+    padding: 8px 16px; border: 1px solid var(--line2);
+    background: var(--panel); color: var(--paper2); cursor:pointer;
+    transition: all 0.2s; text-transform:uppercase;
   }
-  .qr:hover {
-    border-color: var(--blue);
-    color: var(--blue);
-    background: rgba(0,168,255,0.1);
-    box-shadow: var(--glow-b);
-  }
+  .qr:hover { border-color: var(--amber-dim); color: var(--amber); background: rgba(255,176,32,0.06); }
 
-  /* ── Input ────────────────────────────────────────────── */
-  .input-area {
-    padding: 10px 20px 16px;
-    background: var(--bg2);
-    border-top: 1px solid var(--border2);
-    position: relative; z-index: 10; flex-shrink: 0;
-  }
-  .input-area::before {
-    content: '';
-    position: absolute; top: -1px; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--blue), transparent);
-    opacity: 0.5;
-  }
+  /* ── Input ────────────────────────────────────────────────── */
+  .input-area { padding: 12px 22px 18px; background: var(--bg2); border-top: 1px solid var(--line); position:relative; z-index:10; flex-shrink:0; }
 
   .input-row {
-    display: flex; gap: 12px; align-items: flex-end;
-    border: 1px solid var(--border2);
-    background: rgba(0,168,255,0.03);
+    display:flex; gap:12px; align-items:flex-end;
+    border: 1px solid var(--line2); background: var(--panel);
     padding: 10px 10px 10px 18px;
-    clip-path: polygon(8px 0%, 100% 0%, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0% 100%, 0% 8px);
     transition: border-color 0.2s, box-shadow 0.2s;
   }
-  .input-row:focus-within {
-    border-color: var(--blue);
-    box-shadow: var(--glow-b);
-  }
+  .input-row:focus-within { border-color: var(--amber-dim); box-shadow: var(--glow-amb); }
 
   .msg-input {
-    flex: 1; background: none; border: none;
-    color: var(--text);
-    font-family: 'Rajdhani', sans-serif; font-size: 15px;
-    outline: none; resize: none;
-    max-height: 80px; min-height: 22px;
-    line-height: 1.5; padding: 1px 0;
+    flex:1; background:none; border:none; color: var(--paper);
+    font-family:'IBM Plex Sans', sans-serif; font-size:15px; outline:none; resize:none;
+    max-height:80px; min-height:22px; line-height:1.5; padding:1px 0;
   }
-  .msg-input::placeholder {
-    color: var(--text3);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px; letter-spacing: 1px;
-  }
+  .msg-input::placeholder { color: var(--paper3); font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:1px; }
 
   .send-btn {
-    background: linear-gradient(135deg, var(--blue2), var(--blue));
-    border: none; color: white;
-    font-family: 'Orbitron', sans-serif;
-    font-size: 10px; font-weight: 700;
-    letter-spacing: 2px;
-    padding: 10px 18px;
-    cursor: pointer;
-    clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
-    transition: all 0.2s;
-    white-space: nowrap;
-    box-shadow: var(--glow-b);
+    background: var(--amber); border:none; color:#0c0e10;
+    font-family:'IBM Plex Mono', monospace; font-size:10px; font-weight:700;
+    letter-spacing:1.5px; padding: 10px 18px; cursor:pointer;
+    transition: all 0.2s; white-space:nowrap; box-shadow: var(--glow-amb);
   }
-  .send-btn:hover   { background: linear-gradient(135deg, var(--blue), var(--cyan)); }
-  .send-btn:disabled{ opacity: 0.3; cursor: not-allowed; box-shadow: none; }
+  .send-btn:hover { filter: brightness(1.15); }
+  .send-btn:disabled { opacity:0.3; cursor:not-allowed; box-shadow:none; }
 
-  /* ── Date divider ─────────────────────────────────────── */
   .date-div {
-    display: flex; align-items: center; gap: 12px;
-    color: var(--text3);
-    font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 3px;
+    display:flex; align-items:center; gap:12px; color: var(--paper3);
+    font-family:'IBM Plex Mono', monospace; font-size:9px; letter-spacing:3px;
   }
-  .date-div::before, .date-div::after {
-    content:''; flex:1; height:1px;
-    background: linear-gradient(90deg, transparent, var(--border2), transparent);
-  }
+  .date-div::before, .date-div::after { content:''; flex:1; height:1px; background: var(--line); }
 
-  /* ── New msg badge ────────────────────────────────────── */
   .new-msg {
-    position: fixed; bottom: 95px; left: 50%;
-    transform: translateX(-50%);
-    background: var(--blue); color: white;
-    font-family: 'Orbitron', sans-serif;
-    font-size: 9px; letter-spacing: 2px;
-    padding: 7px 18px;
-    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
-    cursor: pointer; display: none; z-index: 100;
-    box-shadow: var(--glow-b);
-    animation: slideUp 0.3s ease;
+    position:fixed; bottom:95px; left:50%; transform:translateX(-50%);
+    background: var(--amber); color:#0c0e10;
+    font-family:'IBM Plex Mono', monospace; font-size:9px; letter-spacing:1.5px;
+    padding: 7px 18px; cursor:pointer; display:none; z-index:100;
+    box-shadow: var(--glow-amb); animation: slideUp 0.3s ease;
   }
-  @keyframes slideUp {
-    from{transform:translateX(-50%) translateY(10px);opacity:0}
-    to{transform:translateX(-50%) translateY(0);opacity:1}
-  }
+  @keyframes slideUp { from{transform:translateX(-50%) translateY(10px); opacity:0} to{transform:translateX(-50%) translateY(0); opacity:1} }
 
-  /* ── Scrollbar ────────────────────────────────────────── */
-  ::-webkit-scrollbar { width: 3px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 1px; }
+  ::-webkit-scrollbar { width:3px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line2); }
 
-  /* ── Corner decorations ───────────────────────────────── */
-  .corner-tl, .corner-br {
-    position: fixed; width: 60px; height: 60px;
-    pointer-events: none; z-index: 2;
-    opacity: 0.4;
+  .corner-tl, .corner-br { position:fixed; width:40px; height:40px; pointer-events:none; z-index:2; opacity:0.5; }
+  .corner-tl { top:0; left:0; border-top: 1px solid var(--amber-dim); border-left: 1px solid var(--amber-dim); }
+  .corner-br { bottom:0; right:0; border-bottom: 1px solid var(--amber-dim); border-right: 1px solid var(--amber-dim); }
+
+  @media (max-width: 900px) {
+    .topbar { padding:10px 14px; flex-wrap:wrap; gap:8px; }
+    .header-center { order:3; width:100%; align-items:flex-start; border:none; padding:0; }
+    .msg-row, .msg-row.system { max-width:92%; }
+    .dash-glow { width:600px; height:280px; }
   }
-  .corner-tl { top: 0; left: 0; border-top: 2px solid var(--blue); border-left: 2px solid var(--blue); }
-  .corner-br { bottom: 0; right: 0; border-bottom: 2px solid var(--blue); border-right: 2px solid var(--blue); }
+  @media (max-width: 560px) {
+    .topbar { padding:8px 10px; }
+    .logo-main { font-size:14px; letter-spacing:2px; }
+    .logo-sub { display:none; }
+    .vehicle-vin { display:none; }
+    .header-right { gap:8px; }
+    .source-chip { display:none; }
+    .status-hud { padding:5px 10px; }
+    .status-text-hud { font-size:8px; }
+    .stat-cell { min-width:78px; padding:8px 14px; }
+    .stat-num { font-size:14px; }
+    .chat-area { padding:14px 12px; gap:14px; }
+    .msg-row, .msg-row.system { max-width:100%; }
+    .bubble { padding:12px 14px; font-size:13px; }
+    .quick-replies { padding:0 12px 10px; gap:6px; }
+    .qr { font-size:9px; padding:6px 12px; }
+    .input-area { padding:8px 10px 12px; }
+    .input-row { padding:8px 8px 8px 14px; gap:8px; }
+    .send-btn { padding:9px 12px; font-size:9px; }
+    .corner-tl, .corner-br { width:26px; height:26px; }
+    .dash-glow { width:340px; height:180px; }
+    .new-msg { bottom:130px; font-size:8px; padding:6px 14px; }
+  }
 </style>
 </head>
 <body>
 
-<div class="arc-reactor"></div>
+<div class="dash-glow"></div>
 <div class="corner-tl"></div>
 <div class="corner-br"></div>
 
-<!-- ── Header ──────────────────────────────────────────── -->
 <div class="topbar">
   <div class="logo-block">
-    <div class="arc-icon">
-      <svg width="44" height="44" viewBox="0 0 44 44">
-        <circle cx="22" cy="22" r="20" fill="none" stroke="rgba(0,168,255,0.3)" stroke-width="1"/>
-        <circle cx="22" cy="22" r="15" fill="none" stroke="rgba(0,168,255,0.2)" stroke-width="1" stroke-dasharray="4 2"/>
-        <circle cx="22" cy="22" r="10" fill="none" stroke="rgba(0,168,255,0.4)" stroke-width="1"/>
-      </svg>
-      <div class="arc-inner"></div>
-    </div>
+    <div class="arc-icon"><div class="arc-inner"></div></div>
     <div class="logo-text">
       <div class="logo-main">ACDT</div>
-      <div class="logo-sub">J.A.R.V.I.S. AUTOMOTIVE INTERFACE</div>
+      <div class="logo-sub">Vehicle Assistant · Live Diagnostics</div>
     </div>
   </div>
 
   <div class="header-center">
-    <div class="vehicle-id">2018 TOYOTA CAMRY</div>
+    <div class="vehicle-id">2018 Toyota Camry</div>
     <div class="vehicle-vin">VIN · VIN_1234567890</div>
   </div>
 
@@ -576,67 +393,64 @@
   </div>
 </div>
 
-<!-- ── Stats strip ──────────────────────────────────────── -->
 <div class="stats-strip">
   <div class="stat-cell" id="sc-rpm">
     <div class="stat-num" id="sv-rpm">—</div>
-    <div class="stat-label">ENGINE RPM</div>
+    <div class="stat-label">Engine RPM</div>
     <div class="stat-micro-bar"><div class="stat-micro-fill" id="sf-rpm" style="width:0%"></div></div>
   </div>
   <div class="stat-cell" id="sc-coolant">
     <div class="stat-num" id="sv-coolant">—</div>
-    <div class="stat-label">COOLANT °C</div>
+    <div class="stat-label">Coolant °C</div>
     <div class="stat-micro-bar"><div class="stat-micro-fill" id="sf-coolant" style="width:0%"></div></div>
   </div>
   <div class="stat-cell" id="sc-speed">
     <div class="stat-num" id="sv-speed">—</div>
-    <div class="stat-label">VELOCITY km/h</div>
+    <div class="stat-label">Velocity km/h</div>
     <div class="stat-micro-bar"><div class="stat-micro-fill" id="sf-speed" style="width:0%"></div></div>
   </div>
   <div class="stat-cell" id="sc-fuel">
     <div class="stat-num" id="sv-fuel">—</div>
-    <div class="stat-label">FUEL LEVEL %</div>
+    <div class="stat-label">Fuel Level %</div>
     <div class="stat-micro-bar"><div class="stat-micro-fill" id="sf-fuel" style="width:0%"></div></div>
   </div>
   <div class="stat-cell" id="sc-batt">
     <div class="stat-num" id="sv-batt">—</div>
-    <div class="stat-label">BATTERY V</div>
+    <div class="stat-label">Battery V</div>
     <div class="stat-micro-bar"><div class="stat-micro-fill" id="sf-batt" style="width:0%"></div></div>
   </div>
   <div class="stat-cell" id="sc-load">
     <div class="stat-num" id="sv-load">—</div>
-    <div class="stat-label">ENGINE LOAD %</div>
+    <div class="stat-label">Engine Load %</div>
     <div class="stat-micro-bar"><div class="stat-micro-fill" id="sf-load" style="width:0%"></div></div>
   </div>
   <div class="stat-cell" id="sc-health">
     <div class="stat-num" id="sv-health">—</div>
-    <div class="stat-label">HEALTH SCORE</div>
+    <div class="stat-label">Health Score</div>
     <div class="stat-micro-bar"><div class="stat-micro-fill" id="sf-health" style="width:0%"></div></div>
   </div>
   <div class="stat-cell" id="sc-tyre">
     <div class="stat-num" id="sv-tyre">—</div>
-    <div class="stat-label">TYRE RL psi</div>
+    <div class="stat-label">Tyre RL psi</div>
     <div class="stat-micro-bar"><div class="stat-micro-fill" id="sf-tyre" style="width:0%"></div></div>
   </div>
 </div>
 
-<!-- ── Chat ──────────────────────────────────────────────── -->
 <div class="chat-area" id="chatArea">
   <div class="date-div">SYSTEM INITIALISED</div>
   <div class="msg-row acdt">
-    <div class="msg-tag">◈ J.A.R.V.I.S. AUTOMOTIVE</div>
+    <div class="msg-tag">◈ ACDT VEHICLE ASSISTANT</div>
     <div class="bubble">
-      Good day. I am your Automotive Reasoning and Vehicle Intelligence System.
-      All primary systems are online and I am monitoring your 2018 Toyota Camry in real-time.
-      How may I assist you?
+      Good day. I'm monitoring your 2018 Toyota Camry in real time —
+      engine, coolant, fuel, and tyre systems are all reporting in.
+      How can I help?
     </div>
     <div class="msg-ts" id="welcomeTs"></div>
   </div>
 </div>
 
-<div class="new-msg" id="newMsgBadge" onclick="scrollToBottom(true)">↓ INCOMING TRANSMISSION</div>
+<div class="new-msg" id="newMsgBadge" onclick="scrollToBottom(true)">↓ NEW MESSAGE</div>
 
-<!-- ── Quick replies ─────────────────────────────────────── -->
 <div class="quick-replies" id="quickReplies">
   <div class="qr" onclick="send('Run full vehicle diagnostics')">⬡ Full Diagnostics</div>
   <div class="qr" onclick="send('Is it safe to drive right now?')">⬡ Safety Status</div>
@@ -646,14 +460,13 @@
   <div class="qr" onclick="send('Predict upcoming component failures')">⬡ Failure Prediction</div>
 </div>
 
-<!-- ── Input ──────────────────────────────────────────────── -->
 <div class="input-area">
   <div class="input-row">
     <textarea class="msg-input" id="msgInput"
-      placeholder="ENTER QUERY..."
+      placeholder="Enter query..."
       rows="1"
       onkeydown="handleKey(event)"
-      oninput="autoResize(this)"
+      oninput="autoResize(this); signalTyping()"
     ></textarea>
     <button class="send-btn" id="sendBtn" onclick="sendFromInput()">TRANSMIT</button>
   </div>
@@ -675,7 +488,6 @@ function handleKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFromInput(); }
 }
 
-// ── Scroll ─────────────────────────────────────────────────────────
 let userScrolled = false;
 const chatArea   = document.getElementById('chatArea');
 chatArea.addEventListener('scroll', () => {
@@ -693,10 +505,9 @@ function scrollToBottom(force = false) {
   }
 }
 
-// ── Append message ─────────────────────────────────────────────────
 function appendMsg(role, content, time, isMarkdown = false) {
   const group  = document.createElement('div');
-  const tag    = role === 'driver' ? '◈ YOU' : role === 'system' ? '◈ SYSTEM' : '◈ J.A.R.V.I.S.';
+  const tag    = role === 'driver' ? '◈ YOU' : role === 'system' ? '◈ SYSTEM' : '◈ ACDT';
   let   extra  = '';
   if (role !== 'driver' && role !== 'system') {
     const u = content.toUpperCase();
@@ -716,13 +527,19 @@ function appendMsg(role, content, time, isMarkdown = false) {
   return group;
 }
 
-// ── Typing ─────────────────────────────────────────────────────────
+let _typingTimer = null;
+function signalTyping() {
+  if (_typingTimer) return;  // throttle: at most once every 2 seconds
+  fetch('/api/typing', { method: 'POST' }).catch(() => {});
+  _typingTimer = setTimeout(() => { _typingTimer = null; }, 2000);
+}
+
 function showTyping() {
   const wrap = document.createElement('div');
   wrap.className = 'msg-row acdt';
   wrap.id = 'typingWrap';
   wrap.innerHTML = `
-    <div class="msg-tag">◈ J.A.R.V.I.S. PROCESSING</div>
+    <div class="msg-tag">◈ ACDT PROCESSING</div>
     <div class="typing-wrap">
       <div class="typing-dot"></div>
       <div class="typing-dot"></div>
@@ -733,7 +550,6 @@ function showTyping() {
   return wrap;
 }
 
-// ── Send ───────────────────────────────────────────────────────────
 let isStreaming = false;
 
 function send(text) {
@@ -792,7 +608,6 @@ async function sendFromInput() {
   document.getElementById('sendBtn').disabled = false;
 }
 
-// ── Proactive messages ─────────────────────────────────────────────
 let _lastMsgCount = 0;
 async function fetchMessages() {
   try {
@@ -810,7 +625,6 @@ async function fetchMessages() {
   } catch(e) {}
 }
 
-// ── Stats ──────────────────────────────────────────────────────────
 function setStat(id, val, min, max, warn, crit, dec = 0) {
   if (val == null) return;
   const cell = document.getElementById(`sc-${id}`);
@@ -834,11 +648,10 @@ async function fetchSensors() {
     setStat('batt',    data.battery_voltage,  10.5, 15,   null, null, 1);
     setStat('load',    data.engine_load,      0,    100,  85,   95,  1);
     setStat('tyre',    data.tyre_pressure_rl, 20,   40,   28,   26,  1);
-    // Low fuel = critical bar colour
     if (data.fuel_level != null) {
       const fb = document.getElementById('sf-fuel');
-      if      (data.fuel_level < 5)  { fb.style.background = 'var(--red)';   document.getElementById('sc-fuel').classList.add('crit'); }
-      else if (data.fuel_level < 15) { fb.style.background = 'var(--amber)'; document.getElementById('sc-fuel').classList.add('warn'); }
+      if      (data.fuel_level < 5)  { fb.style.background = 'var(--critical)'; document.getElementById('sc-fuel').classList.add('crit'); }
+      else if (data.fuel_level < 15) { fb.style.background = 'var(--caution)'; document.getElementById('sc-fuel').classList.add('warn'); }
     }
   } catch(e) {}
 }
@@ -851,7 +664,7 @@ async function fetchHealth() {
     document.getElementById('sv-health').textContent = score;
     const hf = document.getElementById('sf-health');
     hf.style.width = score + '%';
-    hf.style.background = score >= 85 ? 'var(--green)' : score >= 60 ? 'var(--amber)' : 'var(--red)';
+    hf.style.background = score >= 85 ? 'var(--ok)' : score >= 60 ? 'var(--caution)' : 'var(--critical)';
 
     const dot = document.getElementById('statusDot');
     const txt = document.getElementById('statusTxt');
@@ -878,7 +691,6 @@ async function fetchDataSource() {
   } catch(e) {}
 }
 
-// ── Boot ───────────────────────────────────────────────────────────
 fetchSensors(); fetchHealth(); fetchDataSource(); fetchMessages();
 setInterval(fetchSensors,    2000);
 setInterval(fetchHealth,     5000);

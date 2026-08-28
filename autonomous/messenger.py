@@ -31,11 +31,20 @@ def _get_redis():
     return redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
 
+def _user_is_typing() -> bool:
+    """Check if the driver is currently typing in the chat box."""
+    try:
+        return _get_redis().get("driver:typing") == "1"
+    except Exception:
+        return False
+
+
 def push_message(content: str, role: str = "acdt",
                  msg_type: str = "info", force: bool = False):
     """
     Push a proactive message to the driver chat.
     Respects cooldown periods unless force=True.
+    Non-critical messages wait if the driver is actively typing.
     """
     now = datetime.now(timezone.utc)
 
@@ -47,6 +56,11 @@ def push_message(content: str, role: str = "acdt",
                 return
             if msg_type == "info"     and elapsed < INFO_COOLDOWN:
                 return
+
+    # Critical alerts still interrupt — everything else waits a beat
+    if msg_type != "critical" and _user_is_typing():
+        print(f"[MESSENGER] Driver is typing — holding {msg_type} message")
+        return
 
     _last_sent[msg_type] = now
 
