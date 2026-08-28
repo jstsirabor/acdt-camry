@@ -14,6 +14,12 @@ WARNING_KEYWORDS  = ["WARNING", "OVERDUE", "DUE SOON", "borderline", "at risk"]
 
 
 def classify_severity(text: str) -> str:
+    # An agent-level failure must never be silently classified as "info"/SAFE.
+    # Treat it as a warning so it gets logged loudly and pushed to the mechanic
+    # twin instead of being reported to the driver as "all sensors normal".
+    if text.strip().startswith("Safety Agent error"):
+        return "warning"
+
     upper = text.upper()
     if any(k.upper() in upper for k in CRITICAL_KEYWORDS):
         return "critical"
@@ -21,9 +27,9 @@ def classify_severity(text: str) -> str:
         return "warning"
     return "info"
 
+
 def act_on_safety(report: str):
     severity = classify_severity(report)
-
     if severity == "critical":
         print("[ACTION ENGINE] 🚨 CRITICAL — escalating to remote mechanic twin")
         packet = {
@@ -37,7 +43,6 @@ def act_on_safety(report: str):
         log_event("autonomous_safety_action", packet, severity="critical")
         cache_agent_alert("safety", f"🚨 CRITICAL: {report[:200]}")
         _push_to_mechanic("emergency", packet)
-
     elif severity == "warning":
         print("[ACTION ENGINE] ⚠ WARNING — notifying remote mechanic twin")
         packet = {
@@ -50,7 +55,6 @@ def act_on_safety(report: str):
         log_event("autonomous_safety_warning", packet, severity="warning")
         cache_agent_alert("safety", f"⚠ WARNING: {report[:200]}")
         _push_to_mechanic("emergency", packet)
-
     else:
         # SAFE — just log locally, do NOT push to mechanic
         print("[ACTION ENGINE] ✅ Safety check passed — no action needed")
@@ -61,9 +65,9 @@ def act_on_safety(report: str):
         }, severity="info")
         cache_agent_alert("safety", "✅ SAFE: All sensors within normal limits.")
 
+
 def act_on_maintenance(report: str):
     severity = classify_severity(report)
-
     if severity in ("critical", "warning"):
         print(f"[ACTION ENGINE] 🔧 Maintenance {severity} — notifying remote mechanic twin")
         packet = {
@@ -76,7 +80,6 @@ def act_on_maintenance(report: str):
         log_event("autonomous_maintenance_action", packet, severity=severity)
         cache_agent_alert("preventive", f"🔧 {severity.upper()}: {report[:200]}")
         _push_to_mechanic("maintenance", packet)
-
     else:
         print("[ACTION ENGINE] ✅ Maintenance check passed")
         cache_agent_alert("preventive", "✅ OK: No maintenance issues detected.")

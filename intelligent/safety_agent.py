@@ -258,4 +258,6 @@ def run_safety_check(query: str = "Full safety assessment.") -> str:
     try:
         return safety_executor.invoke({"input": query})["output"]
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return f"Safety Agent error: {str(e)}"
