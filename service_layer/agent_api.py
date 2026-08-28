@@ -213,7 +213,7 @@ class GuidanceRequest(BaseModel):
 @app.post("/api/atdt/guidance")
 async def atdt_guidance(req: GuidanceRequest):
     from intelligent.guidance_agent import run_guidance_check
-    result = run_guidance_check(req.query)
+    result = run_guidance_check(req.query, req.session_id)
     return JSONResponse({"response": result})
 
 # ── Mechanic API endpoints ─────────────────────────────────────────
