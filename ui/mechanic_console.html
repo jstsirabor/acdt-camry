@@ -445,7 +445,7 @@
   <div class="logo-block">
     <div class="wrench-icon">◈</div>
     <div class="logo-text">
-      <div class="logo-main">ACDT MECH</div>
+      <div class="logo-main">ATDT</div>
       <div class="logo-sub">SVC.PLATE · MECHANIC_001</div>
     </div>
   </div>
@@ -464,7 +464,7 @@
     <div class="source-chip sim" id="sourceChip">◈ SIMULATOR</div>
     <div class="conn-status">
       <div class="conn-dot online" id="connDot"></div>
-      <div class="conn-text online" id="connText">VEHICLE ONLINE</div>
+      <div class="conn-text online" id="connText">MECHANIC LINK ONLINE</div>
     </div>
     <a href="/" class="nav-link">◈ DRIVER VIEW</a>
   </div>
@@ -671,6 +671,11 @@ async function fetchHealth() {
   } catch(e) {}
 }
 
+// Reflects whether the remote mechanic's own Ditto instance is reachable
+// (service_layer/mechanic_client.py's is_mechanic_connected()) — this is
+// the link to the mechanic's backend, not the vehicle's OBD/MQTT data
+// source. A car can be sending perfectly good live telemetry while this
+// shows OFFLINE if the mechanic's Ditto is down, and vice versa.
 async function checkConnection() {
   try {
     const data = await (await fetch('/api/mechanic/status')).json();
@@ -679,16 +684,16 @@ async function checkConnection() {
     if (data.connected) {
       dot.className = 'conn-dot online';
       txt.className = 'conn-text online';
-      txt.textContent = 'VEHICLE ONLINE';
+      txt.textContent = 'MECHANIC LINK ONLINE';
     } else {
       dot.className = 'conn-dot offline';
       txt.className = 'conn-text offline';
-      txt.textContent = 'VEHICLE OFFLINE';
+      txt.textContent = 'MECHANIC LINK OFFLINE';
     }
   } catch(e) {
     document.getElementById('connDot').className = 'conn-dot offline';
     document.getElementById('connText').className = 'conn-text offline';
-    document.getElementById('connText').textContent = 'CONNECTION LOST';
+    document.getElementById('connText').textContent = 'MECHANIC LINK LOST';
   }
 }
 
