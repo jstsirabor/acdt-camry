@@ -9,7 +9,10 @@ Starts the full ACDT stack:
   5. Starts OBD-II simulator (only while the live data-source mode is
      "simulator", or "auto" and no adapter is found — see
      start_simulator_watcher())
-  6. Starts FastAPI dashboard server
+  6. Starts live data writer (writes real adapter/MQTT telemetry to
+     InfluxDB whenever that's the active source — see
+     physical.obd_reader.run_live_writer())
+  7. Starts FastAPI dashboard server
 """
 import threading
 import time
@@ -137,7 +140,15 @@ def main():
     watcher_thread = threading.Thread(target=start_simulator_watcher, daemon=True)
     watcher_thread.start()
 
-    # 6. Start FastAPI server
+    # 6. Start live data writer (writes real adapter/MQTT telemetry to
+    #    InfluxDB whenever that's the active source — mirrors the
+    #    simulator watcher above but for real vehicle data, since
+    #    read_sensors() alone never persists anything on its own)
+    from physical import obd_reader
+    live_writer_thread = threading.Thread(target=obd_reader.run_live_writer, daemon=True)
+    live_writer_thread.start()
+
+    # 7. Start FastAPI server
     print("[MAIN] Dashboard → http://localhost:8501\n")
     from shared.config import API_HOST, API_PORT
     uvicorn.run(

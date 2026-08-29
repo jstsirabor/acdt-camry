@@ -351,3 +351,28 @@ def _push_system_message(text: str):
         r.ltrim("driver:messages", 0, 199)
     except Exception as e:
         print(f"[OBD READER] Could not push message: {e}")
+
+
+def run_live_writer(poll_interval: float = 2.0):
+    """Writes real adapter/mqtt telemetry to InfluxDB whenever it's the
+    active data source — mirrors simulator.run(), but sources data from
+    read_sensors() instead of generate_reading(). Runs forever in a
+    daemon thread; skips writing (but keeps looping) whenever the
+    active source isn't adapter/mqtt, or when a live source has no
+    real data yet (get_data_source() reports 'none' in that case)."""
+    from shared.influx_io import write_point
+    from shared.config import SENSOR_FIELDS, ASSET_ID
+    import time as _time
+
+    while True:
+        try:
+            source = get_data_source()
+            if source in ("adapter", "mqtt"):
+                payload = read_sensors()
+                fields = {k: v for k, v in payload.items()
+                          if k in SENSOR_FIELDS and v is not None}
+                if fields:
+                    write_point("asset_telemetry", {"asset_id": ASSET_ID}, fields)
+        except Exception as e:
+            print(f"[OBD READER] Live writer error: {e}")
+        _time.sleep(poll_interval)
