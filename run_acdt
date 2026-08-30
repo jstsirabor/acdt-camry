@@ -1,0 +1,390 @@
+ACDT — Full Lifecycle Runbook (updated 2026-08-29)
+
+⚠ IMPORTANT: the droplet at 204.48.26.161 referenced below was DESTROYED and
+rebuilt once already. Current droplet: ubuntu-s-4vcpu-8gb-nyc1 (4 vCPU/8GB,
+NYC1 region) — but IF YOU HAVE DESTROYED IT AGAIN since this doc was last
+edited, the IP below is stale. Check the DigitalOcean control panel for the
+current IP before following any step here that references an IP directly.
+
+This reflects the current production setup: the backend runs on the
+DigitalOcean droplet as a systemd service (acdt.service), not locally via
+`python main.py`. Local dev instructions are kept at the bottom for when
+you're iterating on code before pushing.
+
+═══════════════════════════════════════════
+IF THE DROPLET WAS DESTROYED — REBUILD FROM SCRATCH
+═══════════════════════════════════════════
+
+Full sequence, in order, with the gotchas we've hit before baked in:
+
+1. Create a new droplet: 4 vCPU / 8GB RAM minimum (2vCPU/4GB caused
+   memory-pressure/swap-thrashing problems before), Ubuntu, same region
+   (NYC1) if it matters for latency.
+
+2. Create + activate a 4GB swap file BEFORE bringing up the stack:
+
+    fallocate -l 4G /swapfile
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+    echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    free -h    # confirm Swap: 4.0Gi
+
+3. Install Docker:
+
+    curl -fsSL https://get.docker.com | sh
+
+4. Generate a new SSH deploy key on the droplet and add it to the GitHub
+   repo (the old one dies with the old droplet — this is NOT reused):
+
+    ssh-keygen -t ed25519 -C "acdt-droplet"
+    cat ~/.ssh/id_ed25519.pub   # add this to GitHub repo deploy keys
+
+5. Clone the repo:
+
+    git clone git@github.com:jstsirabor/acdt-camry.git
+    cd acdt-camry
+
+6. Recreate .env from scratch — EVERY value needs retyping (this file is
+   gitignored on purpose and does NOT survive a destroy). Keep your saved
+   copy handy. Required sections: Ollama, Influx, Mongo, Neo4j, Ditto +
+   Mechanic Ditto, OpenWeather/OpenRoute keys, MQTT block, and the model
+   vars (see MODELS section below).
+
+7. python3 -m venv .venv will likely fail with "ensurepip is not
+   available" — fix first:
+
+    sudo apt update
+    sudo apt install -y python3.12-venv python3-pip
+    python3 -m venv .venv
+    source .venv/bin/activate
+
+8. pip install -r requirements.txt will likely fail on
+   torch==2.12.0+cpu (not on regular PyPI) — install it separately first:
+
+    pip install torch==2.12.0+cpu --index-url https://download.pytorch.org/whl/cpu
+    pip install -r requirements.txt
+
+   Confirm paho-mqtt installed cleanly (needed for the MQTT data source):
+
+    pip show paho-mqtt
+
+9. Bring up the Docker stack:
+
+    docker compose up -d
+    docker ps
+
+   Check InfluxDB SPECIFICALLY shows a real port mapping
+   (0.0.0.0:8086->8086/tcp, not just 8086/tcp with no host binding) —
+   this has silently failed before after a port conflict.
+
+10. Recreate the acdt.service systemd unit:
+
+    sudo nano /etc/systemd/system/acdt.service
+
+    [Unit]
+    Description=ACDT Camry App
+    After=docker.service network-online.target
+    Wants=network-online.target
+    Requires=docker.service
+
+    [Service]
+    Type=simple
+    WorkingDirectory=/root/acdt-camry
+    ExecStart=/root/acdt-camry/.venv/bin/python /root/acdt-camry/main.py
+    Restart=always
+    RestartSec=5
+    User=root
+    EnvironmentFile=/root/acdt-camry/.env
+
+    [Install]
+    WantedBy=multi-user.target
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable acdt.service
+    sudo systemctl start acdt.service
+    sudo systemctl status acdt.service
+
+11. Verify end-to-end (see TESTING section below for the full checklist) —
+    data source, sensors, ATDT diagnose/guidance, dashboards.
+
+Note on logs: this rebuilt service does NOT use a StandardOutput=append
+log file — logs go through journalctl, NOT a plain acdt.log file (despite
+what an older version of this doc said):
+
+    journalctl -u acdt.service -n 50 --no-pager
+    journalctl -u acdt.service --since "5 minutes ago" --no-pager
+    journalctl -u acdt.service -f     # follow live
+
+═══════════════════════════════════════════
+PRODUCTION (droplet) — day to day
+═══════════════════════════════════════════
+
+1. SSH in
+
+    ssh root@<CURRENT_DROPLET_IP>    # check DO panel if unsure
+    cd ~/acdt-camry
+    source .venv/bin/activate
+
+2. Bring up the Docker stack (both Ditto clusters + all infra)
+
+    docker compose up -d
+    docker ps
+
+Every container should show a PORTS mapping. You're running TWO Ditto
+stacks side by side:
+  - Main Ditto  → gateway on :8081, nginx on :8080  (vehicle digital twin)
+  - Mechanic Ditto → gateway on :8091, nginx on :8090 (mechanic's twin,
+    Thing ID org.example:MECHANIC_001)
+
+If anything shows a blank PORTS column, force it to recreate:
+
+    docker compose stop <container_name>
+    docker compose rm -f <container_name>
+    docker compose up -d <container_name>
+
+3. Backend runs as a systemd service — no manual `python main.py` needed
+
+    systemctl status acdt.service      # check it's running
+    systemctl restart acdt.service     # after a git pull / .env change
+    systemctl stop acdt.service        # to fully stop it
+
+Logs via journalctl (see rebuild section above):
+
+    journalctl -u acdt.service -n 50 --no-pager
+    journalctl -u acdt.service --since "5 minutes ago" --no-pager | grep -i error
+
+4. Deploying a code change
+
+    # locally: edit, commit, push
+    git add . && git commit -m "..." && git push
+
+    # on droplet:
+    git pull
+    systemctl restart acdt.service
+    sleep 5    # give Ditto/Neo4j provisioning time before hitting the API
+    journalctl -u acdt.service -n 30 --no-pager     # confirm clean startup
+
+Gotcha: if git pull fails with "untracked working tree files would be
+overwritten," something local isn't committed (e.g. a test script you
+forgot to add). Move it aside, pull, then decide whether to keep it:
+
+    mv <file> <file>.bak && git pull
+
+Tip: before restarting, sanity-check a Python file isn't broken —
+
+    python3 -c "import ast; ast.parse(open('path/to/file.py').read())" && echo "Syntax OK"
+
+Gotcha: HTML/static files served by the app must match the EXACT filename
+the backend expects (e.g. ui/mechanic.html) — saving/pushing under a
+different name (e.g. mechanic_console.html) causes a FileNotFoundError /
+500 on that route. Confirm the route works after any UI file change:
+
+    curl -s -o /dev/null -w "%{http_code}\n" localhost:8501/mechanic
+
+5. .env — required on BOTH the droplet and your local machine separately
+   (.env is gitignored, changes don't sync, and does NOT survive a
+   droplet destroy — keep an external saved copy)
+
+    DITTO_URL / DITTO_USER / DITTO_PASSWORD          → main Ditto (:8080)
+    MECHANIC_DITTO_URL=http://localhost:8090
+    MECHANIC_DITTO_USER=ditto
+    MECHANIC_DITTO_PASSWORD=ditto
+    MECHANIC_THING_ID=org.example:MECHANIC_001
+    OBD_MODE=mqtt   # or adapter/simulator/auto — can also be overridden
+                     # live via the mechanic console's data-source toggle,
+                     # which takes priority over this and needs no restart
+
+═══════════════════════════════════════════
+MODELS — which LLM drives what
+═══════════════════════════════════════════
+
+All models run locally via Ollama (OLLAMA_HOST/OLLAMA_API_KEY in .env) —
+no cloud LLM API, no VLM (system is text/sensor-data driven, not
+image-based).
+
+    SAFETY_MODEL=gpt-oss:20b            # smaller/faster, real-time checks
+    PREVENTIVE_MODEL=gpt-oss:120b
+    PREDICTIVE_MODEL=gpt-oss:120b
+    DIAGNOSTIC_MODEL=gpt-oss:120b       # ATDT diagnose — not in .env,
+    GUIDANCE_MODEL=gpt-oss:120b         # falls back to shared/config.py
+                                        # default if unset
+
+═══════════════════════════════════════════
+VIEWING IT
+═══════════════════════════════════════════
+
+6. Driver dashboard
+    http://<CURRENT_DROPLET_IP>:8501
+
+7. Mechanic dashboard (service console — emergency/maintenance queues,
+   ATDT diagnose/repair chat, OBD source toggle)
+    http://<CURRENT_DROPLET_IP>:8501/mechanic
+
+Both are served by the same backend, same process.
+
+═══════════════════════════════════════════
+TESTING END-TO-END (after any rebuild or major change)
+═══════════════════════════════════════════
+
+8. Data source / sensors sanity check
+
+    curl localhost:8501/api/mechanic/obd-mode
+    curl localhost:8501/api/sensors
+    curl localhost:8501/api/data-source
+
+If override is mqtt/adapter but active_source shows "none", nothing is
+currently publishing — either the ESP32 isn't running, or (for testing
+without the car) start the fake publisher:
+
+    python3 mqtt_fake_publisher.py
+    # or in the background, surviving disconnects:
+    nohup python3 mqtt_fake_publisher.py > fake_publisher.log 2>&1 &
+
+9. ATDT diagnose/guidance
+
+    curl -X POST localhost:8501/api/atdt/diagnose \
+      -H "Content-Type: application/json" -d '{"query": "rough idle"}'
+
+    curl -X POST localhost:8501/api/atdt/guidance \
+      -H "Content-Type: application/json" -d '{"query": "how do I check the brake pads"}'
+
+Known symptom keys diagnose recognizes: high_o2_correlation, rough_idle,
+engine_overheating, o2_sensor_failure, engine_misfire, lean_fuel_mixture,
+rich_fuel_mixture, transmission_slip, cat_efficiency_below_threshold, etc.
+Vague queries get asked for more detail rather than guessing — that's
+correct behavior, not a bug.
+
+10. Manual mechanic-push test (doesn't wait for a real fault)
+
+    curl http://localhost:8501/api/mechanic/push-test
+
+11. Confirm it landed
+
+    curl -s -u ditto:ditto http://localhost:8090/api/2/things/org.example:MECHANIC_001
+    curl -s http://localhost:8501/api/mechanic/status
+    curl -s http://localhost:8501/api/mechanic/emergency | python3 -m json.tool
+
+Note: alert dedup is active (autonomous/action_engine.py). The mechanic
+twin is only re-pushed on a severity change, or after a cooldown if the
+same severity persists — don't expect a new push on every tick during a
+sustained fault. Look for
+"[ACTION ENGINE] duplicate within cooldown, skipping mechanic push"
+in the logs to confirm it's working as intended, not silently broken.
+
+12. "MECHANIC LINK ONLINE/OFFLINE" on the console ≠ vehicle data status.
+    It only reflects whether the mechanic's own Ditto instance is
+    reachable (service_layer/mechanic_client.py's is_mechanic_connected()).
+    A car can be sending perfectly good live telemetry while this shows
+    OFFLINE if the mechanic Ditto container is down, and vice versa.
+    Use /api/data-source (the "LIVE (MQTT)" chip) to check actual vehicle
+    data flow instead.
+
+═══════════════════════════════════════════
+SHUTTING DOWN / DESTROYING TO SAVE COST
+═══════════════════════════════════════════
+
+13. Stop the backend
+
+    systemctl stop acdt.service
+
+14. Stop the Docker stack
+
+    docker compose down
+
+Your data (InfluxDB, Neo4j, Mongo, both Ditto Mongo instances) persists in
+volumes as long as the droplet itself isn't destroyed — stopping
+containers alone loses nothing.
+
+15. BEFORE destroying the droplet entirely — checklist (learned the hard
+    way once already):
+
+    a) git status  → must say "nothing to commit, working tree clean"
+       (check --ignored too, to catch any untracked-but-important files
+       like a new test script that never got added)
+
+    b) cat .env  → copy this output somewhere OUTSIDE the droplet
+       (password manager, encrypted note, etc.) — this is the exact file
+       that gets lost on destroy and needs to be fully retyped otherwise
+
+    c) Note current droplet specs for the rebuild (currently:
+       4 vCPU / 8GB RAM, NYC1 — update this line if you resize/change it)
+
+    Only destroy once a) and b) are both done.
+
+16. Resizing the droplet down instead of destroying (cheaper than a full
+    rebuild if you'll need it again soon)
+
+Fully supported by DigitalOcean, not a hack. To do it safely:
+
+  a) Power off the droplet (required before any resize):
+
+     ssh root@<CURRENT_DROPLET_IP> "shutdown -h now"
+
+     Wait ~30-60s, then confirm it's off in the DO control panel.
+
+  b) Resize — DO control panel:
+     Droplet page → "Resize" → pick a smaller plan → make sure "Only
+     increase disk size to match new plan" is UNCHECKED (this is the
+     CPU/RAM-only option) → Resize. If checked, the disk resize is baked
+     in permanently even if you resize down again later.
+
+     Or via doctl CLI:
+
+     doctl compute droplet-action resize <droplet-id> \
+       --size <smaller-slug> --resize-disk=false
+
+     doctl compute droplet list   # to find <droplet-id> and current slug
+
+  c) Power back on (DO usually does this automatically after a resize):
+
+     ssh root@<CURRENT_DROPLET_IP>
+     # if this fails: power on from the DO panel, then retry SSH
+
+  d) Resize back up before your next session — same steps, larger plan,
+     disk checkbox still unchecked.
+
+  e) Once back up: resume from PRODUCTION step 1 (SSH in,
+     docker compose up -d, confirm containers, systemctl status).
+
+═══════════════════════════════════════════
+LOCAL DEV (before pushing to droplet)
+═══════════════════════════════════════════
+
+Only needed if you're testing code changes before deploying. Requires a
+local .env with the same MECHANIC_* values pointed at a local Ditto stack,
+or the mechanic push will just fail/fallback to local Mongo storage
+(harmless, but won't test the real integration).
+
+    cd ~/Documents/Tech/acdt-camry
+    sudo docker compose up -d
+    sudo docker compose ps
+    source .venv/bin/activate
+    python main.py
+
+Watch for:
+    [MAIN] Waiting for Ditto gateway...
+    [DITTO] Policy: 204
+    [DITTO] Thing: 204
+    [MAIN] Waiting for Neo4j...
+    [NEO4J] Knowledge graph ready.
+    [MAIN] Starting Ditto sync...
+    [OBD READER] Mode: MQTT (cloud broker)
+    [MQTT READER] Connected to 77426ba5e0b34670b30bf6f00a354af9.s1.eu.hivemq.cloud
+    [OBD READER] ✅ MQTT subscriber started, waiting for ESP32 data...
+    [MAIN] Live data writer started (real telemetry → InfluxDB while
+           adapter/mqtt is the active source)
+    [MAIN] Dashboard → http://localhost:8501
+
+(Optional) Real vehicle data instead of simulator: plug in the ELM327,
+ignition on, power on the ESP32, watch its Serial Monitor for
+"[MQTT] Published OBD data". Without this, either the simulator or
+mqtt_fake_publisher.py (see TESTING section above) works fine for
+end-to-end testing without the car present.
+
+Local dashboards: http://localhost:8501 and http://localhost:8501/mechanic
+From another device on the same network: swap localhost for the host
+machine's LAN IP (`hostname -I`).
+
+Shut down locally: Ctrl+C the main.py terminal, then
+`sudo docker compose down`.
