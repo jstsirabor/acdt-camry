@@ -67,7 +67,6 @@ Full sequence, in order, with the gotchas we've hit before baked in:
 
    Confirm paho-mqtt installed cleanly (needed for the MQTT data source):
 
-    pip install paho-mqtt
     pip show paho-mqtt
 
 9. Bring up the Docker stack:
@@ -83,23 +82,23 @@ Full sequence, in order, with the gotchas we've hit before baked in:
 
     sudo nano /etc/systemd/system/acdt.service
 
-    [Unit]
-    Description=ACDT Camry App
-    After=docker.service network-online.target
-    Wants=network-online.target
-    Requires=docker.service
+[Unit]
+Description=ACDT Camry App
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
 
-    [Service]
-    Type=simple
-    WorkingDirectory=/root/acdt-camry
-    ExecStart=/root/acdt-camry/.venv/bin/python /root/acdt-camry/main.py
-    Restart=always
-    RestartSec=5
-    User=root
-    EnvironmentFile=/root/acdt-camry/.env
+[Service]
+Type=simple
+WorkingDirectory=/root/acdt-camry
+ExecStart=/root/acdt-camry/.venv/bin/python /root/acdt-camry/main.py
+Restart=always
+RestartSec=5
+User=root
+EnvironmentFile=/root/acdt-camry/.env
 
-    [Install]
-    WantedBy=multi-user.target
+[Install]
+WantedBy=multi-user.target
 
     sudo systemctl daemon-reload
     sudo systemctl enable acdt.service
