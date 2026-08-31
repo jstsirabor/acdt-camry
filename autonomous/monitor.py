@@ -19,8 +19,8 @@ from autonomous.messenger import (
     push_journey_prompt, push_all_clear,
 )
 
-SAFETY_INTERVAL      = 30
-MAINTENANCE_INTERVAL = 120
+SAFETY_INTERVAL      = 60
+MAINTENANCE_INTERVAL = 180
 STARTUP_DELAY        = 15
 _journey_active      = False
 
