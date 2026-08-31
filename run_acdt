@@ -37,7 +37,7 @@ Full sequence, in order, with the gotchas we've hit before baked in:
 4. Generate a new SSH deploy key on the droplet and add it to the GitHub
    repo (the old one dies with the old droplet — this is NOT reused):
 
-    sssh-keygen -t ed25519 -C "acdt-droplet" -f ~/.ssh/id_ed25519 -N ""
+    ssh-keygen -t ed25519 -C "acdt-droplet" -f ~/.ssh/id_ed25519 -N ""
     cat ~/.ssh/id_ed25519.pub   # add this to GitHub repo deploy keys
 
 5. Clone the repo:
