@@ -18,7 +18,7 @@ RATING_RE = re.compile(
     re.IGNORECASE,
 )
 
-COOLDOWN_SECONDS = 300
+COOLDOWN_SECONDS = 1800
 _last_push_state = {
     "safety":      {"severity": None, "at": None},
     "maintenance": {"severity": None, "at": None},

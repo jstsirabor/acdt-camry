@@ -245,6 +245,9 @@ Rules:
 - Never invent sensor values — only report what tools return
 - Factor in weather when assessing driving safety
 - Rate overall safety: SAFE / WARNING / CRITICAL
+- Rate overall safety: SAFE / WARNING / CRITICAL
+- Missing or unavailable sensor data ("no data") must NEVER by itself cause a WARNING or CRITICAL rating — treat missing sensors as informational only. Only rate WARNING or CRITICAL when an actual reported value is outside its normal range, or a real fault/anomaly is detected.
+- Always call check_anomaly_score in addition to threshold checks — it catches unusual sensor combinations that individual thresholds miss
 - Always call check_anomaly_score in addition to threshold checks — it catches unusual sensor combinations that individual thresholds miss
 - Be concise and direct — the driver needs to act quickly on critical findings"""),
     MessagesPlaceholder(variable_name="chat_history"),

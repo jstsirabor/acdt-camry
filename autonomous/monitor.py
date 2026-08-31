@@ -4,8 +4,8 @@ autonomous/monitor.py
 Autonomous Monitor v3 — runs agents continuously and
 pushes proactive messages to the driver chat.
 
-Safety:      every 30 seconds
-Maintenance: every 120 seconds
+Safety:      every 300 seconds
+Maintenance: every 900 seconds
 Journey:     detects speed > 5 km/h and prompts for destination
 All-clear:   every 2 hours if nothing to report
 """
@@ -19,8 +19,8 @@ from autonomous.messenger import (
     push_journey_prompt, push_all_clear,
 )
 
-SAFETY_INTERVAL      = 60
-MAINTENANCE_INTERVAL = 180
+SAFETY_INTERVAL      = 300
+MAINTENANCE_INTERVAL = 900
 STARTUP_DELAY        = 15
 _journey_active      = False
 
